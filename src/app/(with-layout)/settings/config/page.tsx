@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { fetchApi } from "@/utils/api";
+import { toast } from "sonner";
 
 export default function AppConfigPage() {
   const [taxPct, setTaxPct] = useState(5.0);
@@ -8,6 +10,63 @@ export default function AppConfigPage() {
   const [defaultRadius, setDefaultRadius] = useState(7.0);
   const [bannerActive, setBannerActive] = useState(true);
   const [announcementText, setAnnouncementText] = useState("🎉 Monsoon Offer: Get Free Delivery on orders above ₹35!");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetchApi("/system/settings");
+      const data = res.data || [];
+      data.forEach((setting: any) => {
+        if (setting.key === "taxPct") setTaxPct(parseFloat(setting.value));
+        if (setting.key === "minOrder") setMinOrder(parseFloat(setting.value));
+        if (setting.key === "defaultRadius") setDefaultRadius(parseFloat(setting.value));
+        if (setting.key === "bannerActive") setBannerActive(setting.value === "true");
+        if (setting.key === "announcementText") setAnnouncementText(setting.value);
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const settingsToUpdate = [
+        { key: "taxPct", value: taxPct.toString() },
+        { key: "minOrder", value: minOrder.toString() },
+        { key: "defaultRadius", value: defaultRadius.toString() },
+        { key: "bannerActive", value: bannerActive.toString() },
+        { key: "announcementText", value: announcementText },
+      ];
+
+      for (const setting of settingsToUpdate) {
+        try {
+          await fetchApi(`/system/settings/${setting.key}`, {
+            method: "PATCH",
+            body: JSON.stringify({ value: setting.value }),
+          });
+        } catch (e) {
+          // Fallback to POST if setting doesn't exist
+          await fetchApi(`/system/settings`, {
+            method: "POST",
+            body: JSON.stringify(setting),
+          });
+        }
+      }
+      toast.success("App configuration saved successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save configuration");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -81,10 +140,11 @@ export default function AppConfigPage() {
         </div>
 
         <button
-          onClick={() => alert("App configuration saved successfully!")}
-          className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-1 hover:bg-primary/90 transition-colors"
+          disabled={saving || loading}
+          onClick={handleSave}
+          className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-1 hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
-          Save Configuration
+          {saving ? "Saving..." : "Save Configuration"}
         </button>
       </div>
     </div>

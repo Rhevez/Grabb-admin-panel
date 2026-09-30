@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FilterBar } from "@/components/common/filter-bar";
 
 interface AuditEntry {
@@ -16,36 +16,24 @@ interface AuditEntry {
 export default function AuditLogPage() {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const logs: AuditEntry[] = [
-    {
-      id: "log_101",
-      timestamp: "Today, 10:14 AM",
-      adminUser: "Client Admin (admin@grabb.com)",
-      action: "UPDATE_STATUS",
-      module: "Orders",
-      beforeVal: JSON.stringify({ orderId: "ORD-94821", status: "packed" }, null, 2),
-      afterVal: JSON.stringify({ orderId: "ORD-94821", status: "out-for-delivery" }, null, 2),
-    },
-    {
-      id: "log_102",
-      timestamp: "Today, 09:30 AM",
-      adminUser: "Alex Mercer (Finance)",
-      action: "SETTLE_PAYOUT",
-      module: "Finance",
-      beforeVal: JSON.stringify({ payoutId: "po5", status: "pending" }, null, 2),
-      afterVal: JSON.stringify({ payoutId: "po5", status: "paid" }, null, 2),
-    },
-    {
-      id: "log_103",
-      timestamp: "Yesterday, 04:15 PM",
-      adminUser: "Sarah Connor (Support)",
-      action: "BLOCK_USER",
-      module: "Users",
-      beforeVal: JSON.stringify({ userId: "u4", status: "active" }, null, 2),
-      afterVal: JSON.stringify({ userId: "u4", status: "blocked", reason: "Spam activity" }, null, 2),
-    },
-  ];
+  useEffect(() => {
+    fetchLogs();
+  }, []);
+
+  const fetchLogs = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/system/audit-logs");
+      setLogs(res.results || res.data || []);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredLogs = logs.filter(
     (l) =>
@@ -87,11 +75,11 @@ export default function AuditLogPage() {
                 const isExpanded = expandedId === l.id;
                 return (
                   <tr key={l.id} className="hover:bg-gray-2 dark:hover:bg-dark-2">
-                    <td className="p-3 text-xs text-dark-4 dark:text-dark-6 font-mono">{l.timestamp}</td>
-                    <td className="p-3 font-semibold">{l.adminUser}</td>
+                    <td className="p-3 text-xs text-dark-4 dark:text-dark-6 font-mono">{l.created_at || l.timestamp}</td>
+                    <td className="p-3 font-semibold">{l.admin_email || l.adminUser}</td>
                     <td className="p-3">
                       <span className="bg-gray-2 dark:bg-dark-2 px-2.5 py-1 rounded text-xs font-bold">
-                        {l.module}
+                        {l.resource || l.module}
                       </span>
                     </td>
                     <td className="p-3 font-mono text-xs font-bold text-primary">{l.action}</td>
@@ -117,13 +105,13 @@ export default function AuditLogPage() {
               Before / After Value State Inspection ({expandedId})
             </h4>
             <div className="grid grid-cols-2 gap-4 text-xs font-mono">
-              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300">
+              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 overflow-x-auto">
                 <p className="font-bold mb-2 uppercase text-[10px]">State Before Change (-):</p>
-                <pre>{logs.find((l) => l.id === expandedId)?.beforeVal}</pre>
+                <pre>{JSON.stringify(logs.find((l) => l.id === expandedId)?.details?.old_value || logs.find((l) => l.id === expandedId)?.beforeVal || {}, null, 2)}</pre>
               </div>
-              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 overflow-x-auto">
                 <p className="font-bold mb-2 uppercase text-[10px]">State After Change (+):</p>
-                <pre>{logs.find((l) => l.id === expandedId)?.afterVal}</pre>
+                <pre>{JSON.stringify(logs.find((l) => l.id === expandedId)?.details?.new_value || logs.find((l) => l.id === expandedId)?.afterVal || {}, null, 2)}</pre>
               </div>
             </div>
           </div>

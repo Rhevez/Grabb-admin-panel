@@ -1,47 +1,83 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StatusBadge } from "@/components/common/status-badge";
 import { TableActionsDropdown } from "@/components/common/table-actions-dropdown";
+import { fetchApi } from "@/utils/api";
+import { toast } from "sonner";
 
 interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: "Super Admin" | "Ops Manager" | "Support Rep" | "Finance Manager";
+  role: string;
   status: "active" | "inactive";
-  lastLogin: string;
+  lastLogin?: string;
 }
 
 export default function AdminsPage() {
-  const [admins, setAdmins] = useState<AdminUser[]>([
-    { id: "a1", name: "Client Admin (You)", email: "admin@grabb.com", role: "Super Admin", status: "active", lastLogin: "Just now" },
-    { id: "a2", name: "Sarah Connor", email: "sarah@grabb.com", role: "Support Rep", status: "active", lastLogin: "10 mins ago" },
-    { id: "a3", name: "Alex Mercer", email: "alex@grabb.com", role: "Finance Manager", status: "active", lastLogin: "2 hours ago" },
-    { id: "a4", name: "John Miller", email: "john@grabb.com", role: "Ops Manager", status: "active", lastLogin: "Yesterday" },
-  ]);
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAdmins();
+  }, []);
+
+  const fetchAdmins = async () => {
+    try {
+      const res = await fetchApi("/users/admins");
+      setAdmins(res.data || res.results || res || []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load admins");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<any>("Ops Manager");
+  const [role, setRole] = useState("ADMIN");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleAddAdmin = () => {
-    if (!name.trim() || !email.trim()) return;
-    setAdmins((prev) => [
-      ...prev,
-      {
-        id: `a_${Date.now()}`,
-        name,
-        email,
-        role,
-        status: "active",
-        lastLogin: "Never",
-      },
-    ]);
-    setModalOpen(false);
-    setName("");
-    setEmail("");
+  const handleAddAdmin = async () => {
+    if (!name.trim() || !email.trim() || !password.trim()) return;
+    setSubmitting(true);
+    try {
+      await fetchApi("/users/admins/invite", {
+        method: "POST",
+        body: JSON.stringify({
+          email,
+          full_name: name,
+          password,
+          role,
+        }),
+      });
+      toast.success("Admin invited successfully!");
+      setModalOpen(false);
+      setName("");
+      setEmail("");
+      setPassword("");
+      fetchAdmins();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to invite admin");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  
+  const handleAction = async (id: string, action: string, data?: any) => {
+    try {
+      await fetchApi(`/users/admins/${id}/${action}`, {
+        method: "PATCH",
+        body: data ? JSON.stringify(data) : undefined,
+      });
+      toast.success(`Admin ${action} successful`);
+      fetchAdmins();
+    } catch (err: any) {
+      toast.error(err.message || `Failed to ${action} admin`);
+    }
   };
 
   const modules = ["Dashboard", "Analytics", "Orders", "Catalog", "Shops", "Delivery Partners", "Users", "Promotions", "Finance", "Settings"];
@@ -98,9 +134,9 @@ export default function AdminsPage() {
                           variant: "primary",
                         },
                         {
-                          label: "Revoke Access",
-                          onClick: () => alert(`Revoking access for: ${a.name}...`),
-                          variant: "danger",
+                          label: a.status === "active" ? "Suspend Admin" : "Activate Admin",
+                          onClick: () => handleAction(a.id, a.status === "active" ? "suspend" : "activate"),
+                          variant: a.status === "active" ? "danger" : "primary",
                         },
                       ]}
                     />

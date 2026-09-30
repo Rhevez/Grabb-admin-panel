@@ -143,6 +143,32 @@ export default function BannersPage() {
               </div>
 
               <div>
+                <label className="block text-xs font-semibold mb-1">Upload Image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      try {
+                        const { fetchApi } = await import("@/utils/api");
+                        const formData = new FormData();
+                        formData.append("file", file);
+                        const res = await fetchApi("/media/upload", {
+                          method: "POST",
+                          body: formData
+                        });
+                        alert("Uploaded: " + res.url);
+                      } catch (err: any) {
+                        alert(err.message);
+                      }
+                    }
+                  }}
+                  className="w-full rounded-lg border border-stroke bg-gray-2 p-2 text-sm dark:border-stroke-dark dark:bg-dark-2 dark:text-white"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold mb-1">Link Target</label>
                 <select
                   value={target}
