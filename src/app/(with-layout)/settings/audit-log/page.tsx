@@ -27,19 +27,40 @@ export default function AuditLogPage() {
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/system/audit-logs");
-      setLogs(res.results || res.data || []);
+      
+      let fetchedLogs = [];
+      if (Array.isArray(res)) {
+        fetchedLogs = res;
+      } else if (res && Array.isArray(res.results)) {
+        fetchedLogs = res.results;
+      } else if (res && Array.isArray(res.data)) {
+        fetchedLogs = res.data;
+      } else if (res && typeof res === "object") {
+        // Fallback if backend returned single object by mistake or something weird
+        fetchedLogs = [];
+      }
+      
+      setLogs(fetchedLogs);
     } catch (err: any) {
-      console.error(err);
+      if (err?.status !== 404) {
+        console.error(err);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredLogs = logs.filter(
-    (l) =>
-      l.adminUser.toLowerCase().includes(search.toLowerCase()) ||
-      l.action.toLowerCase().includes(search.toLowerCase()) ||
-      l.module.toLowerCase().includes(search.toLowerCase())
+  const filteredLogs = (Array.isArray(logs) ? logs : []).filter(
+    (l) => {
+      const adminUser = l.admin_email || l.adminUser || "";
+      const action = l.action || "";
+      const module = l.resource || l.module || "";
+      const s = search.toLowerCase();
+      
+      return adminUser.toLowerCase().includes(s) ||
+             action.toLowerCase().includes(s) ||
+             module.toLowerCase().includes(s);
+    }
   );
 
   return (

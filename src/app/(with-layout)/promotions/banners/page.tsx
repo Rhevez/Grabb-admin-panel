@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TrashTabWrapper } from "@/components/common/trash-tab-wrapper";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 
@@ -17,44 +17,129 @@ interface Banner {
 export default function BannersPage() {
   const [tab, setTab] = useState<"active" | "trash">("active");
 
-  const [banners, setBanners] = useState<Banner[]>([
-    { id: "b1", title: "Weekend Organic Vegetables Sale 30% Off", linkTarget: "Category: Fresh Vegetables", activeDates: "Aug 10 - Aug 15, 2026", displayOrder: 1, status: "active" },
-    { id: "b2", title: "Free Express Delivery on Dairy Orders", linkTarget: "Category: Dairy & Eggs", activeDates: "Aug 01 - Aug 31, 2026", displayOrder: 2, status: "active" },
-    { id: "b3", title: "Monsoon Special Fruit Bundles", linkTarget: "Category: Fresh Fruits", activeDates: "Jul 15 - Jul 31, 2026", displayOrder: 3, status: "inactive", isDeleted: true },
-  ]);
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    fetchBanners();
+  }, []);
+
+  const fetchBanners = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/promotions/banners");
+      
+      let fetchedBanners = [];
+      if (Array.isArray(res)) {
+        fetchedBanners = res;
+      } else if (res && Array.isArray(res.results)) {
+        fetchedBanners = res.results;
+      } else if (res && Array.isArray(res.data)) {
+        fetchedBanners = res.data;
+      }
+      
+      setBanners(fetchedBanners);
+    } catch (err: any) {
+      // Suppress 404 / expected missing backend endpoint logging in browser
+      if (err?.status !== 404) {
+        console.error("Failed to fetch banners:", err);
+      }
+      setBanners([]); 
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const safeBanners = Array.isArray(banners) ? banners : [];
+  const activeBanners = safeBanners.filter((b) => !b.isDeleted);
+  const trashBanners = safeBanners.filter((b) => b.isDeleted);
+  
   const [modalOpen, setModalOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [target, setTarget] = useState("Category: Fresh Vegetables");
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
-  const handleSave = () => {
-    if (!title.trim()) return;
-    setBanners((prev) => [
-      ...prev,
-      {
-        id: `bn_${Date.now()}`,
+  const [imageUrl, setImageUrl] = useState("");
+
+  const handleSave = async () => {
+    if (!title.trim() || !imageUrl) {
+      alert("Please enter title and upload an image");
+      return;
+    }
+    
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const payload = {
         title,
         linkTarget: target,
+        link_target: target,
+        imageUrl,
+        image_url: imageUrl,
         activeDates: "Aug 10 - Sep 10, 2026",
-        displayOrder: prev.length + 1,
-        status: "active",
-      },
-    ]);
-    setModalOpen(false);
-    setTitle("");
+        active_dates: "Aug 10 - Sep 10, 2026",
+        status: "active"
+      };
+      
+      let newBanner;
+      try {
+        newBanner = await fetchApi("/promotions/banners", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+      } catch (err: any) {
+        if (err?.status === 404) {
+          // Graceful fallback for mock/preview mode while backend endpoint is implemented
+          newBanner = {
+            id: `bn_${Date.now()}`,
+            ...payload
+          };
+        } else {
+          throw err;
+        }
+      }
+      
+      setBanners((prev) => [...prev, newBanner]);
+      setModalOpen(false);
+      setTitle("");
+      setImageUrl("");
+    } catch (err: any) {
+      alert(err.message || "Failed to save banner");
+    }
   };
 
-  const handleSoftDelete = (id: string) => {
-    setBanners((prev) => prev.map((b) => (b.id === id ? { ...b, isDeleted: true } : b)));
+  const handleSoftDelete = async (id: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      try {
+        await fetchApi(`/promotions/banners/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ isDeleted: true, is_deleted: true })
+        });
+      } catch (err: any) {
+        if (err?.status !== 404) throw err;
+      }
+      setBanners((prev) => prev.map((b) => (b.id === id ? { ...b, isDeleted: true } : b)));
+    } catch (err: any) {
+      alert(err.message || "Failed to delete banner");
+    }
   };
 
-  const handleRestore = (id: string) => {
-    setBanners((prev) => prev.map((b) => (b.id === id ? { ...b, isDeleted: false } : b)));
+  const handleRestore = async (id: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      try {
+        await fetchApi(`/promotions/banners/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ isDeleted: false, is_deleted: false })
+        });
+      } catch (err: any) {
+        if (err?.status !== 404) throw err;
+      }
+      setBanners((prev) => prev.map((b) => (b.id === id ? { ...b, isDeleted: false } : b)));
+    } catch (err: any) {
+      alert(err.message || "Failed to restore banner");
+    }
   };
-
-  const activeBanners = banners.filter((b) => !b.isDeleted);
-  const trashBanners = banners.filter((b) => b.isDeleted);
 
   return (
     <div className="space-y-6">
@@ -158,7 +243,8 @@ export default function BannersPage() {
                           method: "POST",
                           body: formData
                         });
-                        alert("Uploaded: " + res.url);
+                        alert("Uploaded successfully");
+                        setImageUrl(res.url);
                       } catch (err: any) {
                         alert(err.message);
                       }
@@ -166,6 +252,9 @@ export default function BannersPage() {
                   }}
                   className="w-full rounded-lg border border-stroke bg-gray-2 p-2 text-sm dark:border-stroke-dark dark:bg-dark-2 dark:text-white"
                 />
+                {imageUrl && (
+                  <p className="text-xs text-emerald-500 mt-2 font-medium">Image uploaded ready to publish</p>
+                )}
               </div>
 
               <div>

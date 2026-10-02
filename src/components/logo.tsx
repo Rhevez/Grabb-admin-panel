@@ -6,6 +6,7 @@ export function Logo() {
       <Image
         src="/images/file_0000000075c881f88071932eaa9e6bb8.png"
         fill
+        sizes="180px"
         className="object-contain"
         alt="Grabb Admin Panel logo"
         priority
