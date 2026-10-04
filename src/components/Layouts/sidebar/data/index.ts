@@ -31,8 +31,6 @@ export const NAV_DATA = [
           { title: "Categories", url: "/catalog/categories" },
           { title: "Subcategories", url: "/catalog/subcategories" },
           { title: "Products", url: "/catalog/products" },
-          { title: "Master Mapping", url: "/catalog/master-mapping" },
-          { title: "Inventory", url: "/catalog/inventory" },
         ],
       },
       {

@@ -69,12 +69,11 @@ export default function HelpPage() {
           </h2>
           <div className="space-y-4">
             <p className="text-sm text-dark-5 dark:text-dark-6">
-              Our unique <b>Master Catalog</b> approach ensures consistency across all shops.
+              Our <b>Catalog System</b> organizes products across all shops.
             </p>
             <ol className="list-decimal pl-5 text-sm text-dark-5 dark:text-dark-6 space-y-2">
               <li><b>Categories & Subcategories:</b> Define the top-level hierarchy (e.g., Dairy & Eggs {">"} Cheese).</li>
-              <li><b>Master Mapping:</b> You create a master SKU (e.g., "Amul Milk 1L").</li>
-              <li><b>Shop Inventory:</b> Individual shops link their inventory to your Master SKU and set their own local price and stock limits.</li>
+              <li><b>Products:</b> Manage master items, pricing guidelines, brand details, and product visibility.</li>
             </ol>
             <p className="text-sm font-semibold text-rose-500 mt-2">
               Note: Soft-deleted items will appear in the "Trash" tab of their respective pages and can be restored.

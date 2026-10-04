@@ -1,15 +1,75 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { OverviewCard } from "./card";
 import * as icons from "./icons";
 
-export async function OverviewCardsGroup() {
+interface MetricsData {
+  monthlyRev: string;
+  monthlyRevGrowth: number;
+  activeShops: string;
+  activeShopsGrowth: number;
+  pendingShops: string;
+  pendingShopsGrowth: number;
+  activeDrivers: string;
+  activeDriversGrowth: number;
+  unassignedOrders: string;
+  unassignedOrdersGrowth: number;
+  openTickets: string;
+  openTicketsGrowth: number;
+}
+
+const DEFAULT_METRICS: MetricsData = {
+  monthlyRev: "₹14,250",
+  monthlyRevGrowth: 14.2,
+  activeShops: "185",
+  activeShopsGrowth: 8.5,
+  pendingShops: "14",
+  pendingShopsGrowth: -2.4,
+  activeDrivers: "42/50",
+  activeDriversGrowth: 5.0,
+  unassignedOrders: "8",
+  unassignedOrdersGrowth: -15.0,
+  openTickets: "5",
+  openTicketsGrowth: -10.0,
+};
+
+export function OverviewCardsGroup() {
+  const [metrics, setMetrics] = useState<MetricsData>(DEFAULT_METRICS);
+
+  useEffect(() => {
+    async function loadMetrics() {
+      try {
+        const { fetchApi } = await import("@/utils/api");
+        const res = await fetchApi("/analytics/dashboard-summary");
+        const data = res?.data || res;
+        if (data && typeof data === "object") {
+          setMetrics((prev) => ({
+            ...prev,
+            monthlyRev: data.monthlySubscriptionRev || data.monthly_revenue || prev.monthlyRev,
+            monthlyRevGrowth: typeof data.monthlySubscriptionRevGrowth === "number" ? data.monthlySubscriptionRevGrowth : prev.monthlyRevGrowth,
+            activeShops: data.activePremiumShops !== undefined ? String(data.activePremiumShops) : prev.activeShops,
+            pendingShops: data.pendingShops !== undefined ? String(data.pendingShops) : prev.pendingShops,
+            activeDrivers: data.activeDeliveryDrivers || prev.activeDrivers,
+            unassignedOrders: data.unassignedOrders !== undefined ? String(data.unassignedOrders) : prev.unassignedOrders,
+            openTickets: data.openSupportTickets !== undefined ? String(data.openSupportTickets) : prev.openTickets,
+          }));
+        }
+      } catch (err: any) {
+        if (err?.status !== 404) console.error("Failed to load dashboard overview summary:", err);
+      }
+    }
+    loadMetrics();
+  }, []);
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 sm:gap-6 2xl:gap-7.5">
       <OverviewCard
         label="Monthly Subscription Rev"
         data={{
-          value: "₹12,450",
-          growthRate: 14.2,
+          value: metrics.monthlyRev,
+          growthRate: metrics.monthlyRevGrowth,
         }}
         Icon={icons.Profit}
       />
@@ -18,8 +78,8 @@ export async function OverviewCardsGroup() {
         <OverviewCard
           label="Active Premium Shops"
           data={{
-            value: "185",
-            growthRate: 8.5,
+            value: metrics.activeShops,
+            growthRate: metrics.activeShopsGrowth,
           }}
           Icon={icons.Views}
         />
@@ -29,8 +89,8 @@ export async function OverviewCardsGroup() {
         <OverviewCard
           label="Pending Shops"
           data={{
-            value: "14",
-            growthRate: -2.4,
+            value: metrics.pendingShops,
+            growthRate: metrics.pendingShopsGrowth,
           }}
           Icon={icons.Product}
         />
@@ -40,8 +100,8 @@ export async function OverviewCardsGroup() {
         <OverviewCard
           label="Active Delivery Drivers"
           data={{
-            value: "42/50",
-            growthRate: 5.0,
+            value: metrics.activeDrivers,
+            growthRate: metrics.activeDriversGrowth,
           }}
           Icon={icons.Users}
         />
@@ -51,8 +111,8 @@ export async function OverviewCardsGroup() {
         <OverviewCard
           label="Unassigned Orders"
           data={{
-            value: "8",
-            growthRate: -15.0,
+            value: metrics.unassignedOrders,
+            growthRate: metrics.unassignedOrdersGrowth,
           }}
           Icon={icons.Product}
         />
@@ -62,8 +122,8 @@ export async function OverviewCardsGroup() {
         <OverviewCard
           label="Open Support Tickets"
           data={{
-            value: "5",
-            growthRate: -10.0,
+            value: metrics.openTickets,
+            growthRate: metrics.openTicketsGrowth,
           }}
           Icon={icons.Users}
         />

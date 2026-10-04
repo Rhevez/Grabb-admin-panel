@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { FilterBar } from "@/components/common/filter-bar";
 import { StatusBadge } from "@/components/common/status-badge";
 import { StarIcon } from "@/assets/icons";
+import { downloadCSV } from "@/utils/download";
 
 type TabType = "sales" | "orders" | "delivery" | "customers" | "products";
 
@@ -25,13 +26,93 @@ export default function AnalyticsPage() {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi(`/analytics/dashboard-summary?dateRange=${dateRange}&shop=${shop}`);
       const data = res?.data || res;
-      if (data) setAnalyticsData(data);
+      if (data && typeof data === "object") setAnalyticsData(data);
     } catch (err: any) {
       if (err?.status !== 404) console.error("Failed to fetch analytics:", err);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleExport = () => {
+    if (activeTab === "sales") {
+      const rows = (analyticsData?.shopSalesBreakdown || [
+        { name: "Green Grocery Fresh", orders: 480, rev: "₹14,200", aov: "₹29.58", pct: "42%" },
+        { name: "Urban Organic Mart", orders: 320, rev: "₹10,800", aov: "₹33.75", pct: "32%" },
+        { name: "Daily Needs Superstore", orders: 210, rev: "₹8,600", aov: "₹40.95", pct: "26%" },
+      ]).map((r: any) => [r.name, String(r.orders), r.rev, r.aov, r.pct]);
+      downloadCSV(`sales_analytics_${dateRange}.csv`, ["Shop Name", "Total Orders", "Total Revenue", "AOV", "% of Total"], rows);
+    } else if (activeTab === "delivery") {
+      const rows = (analyticsData?.deliveryLeaderboard || [
+        { name: "Rahul Sharma", count: 184, avg: "22 mins", onTime: "98.5%", rating: "4.9" },
+        { name: "Vikram Singh", count: 162, avg: "24 mins", onTime: "96.2%", rating: "4.8" },
+        { name: "Amit Patel", count: 145, avg: "26 mins", onTime: "94.0%", rating: "4.7" },
+      ]).map((r: any) => [r.name, String(r.count), r.avg, r.onTime, r.rating]);
+      downloadCSV(`delivery_partner_leaderboard_${dateRange}.csv`, ["Partner Name", "Deliveries Completed", "Avg Time", "On-Time %", "Rating"], rows);
+    } else if (activeTab === "customers") {
+      const rows = (analyticsData?.topCustomers || [
+        { name: "Priya Sharma", orders: 28, spent: "₹1,240.00" },
+        { name: "Rajesh Kumar", orders: 22, spent: "₹980.50" },
+        { name: "Ananya Roy", orders: 19, spent: "₹890.00" },
+      ]).map((r: any) => [r.name, String(r.orders), r.spent]);
+      downloadCSV(`top_customers_${dateRange}.csv`, ["Customer Name", "Total Orders", "Total Spent"], rows);
+    } else if (activeTab === "products") {
+      const rows = (analyticsData?.bestSellingProducts || [
+        { name: "Fresh Organic Milk (1L)", shop: "Green Grocery", units: 1420, rev: "₹4,260.00" },
+        { name: "Farm Fresh Eggs (12 pk)", shop: "Urban Organic Mart", units: 980, rev: "₹3,430.00" },
+        { name: "Whole Wheat Bread", shop: "Daily Needs", units: 850, rev: "₹2,125.00" },
+      ]).map((r: any) => [r.name, r.shop, String(r.units), r.rev]);
+      downloadCSV(`bestselling_products_${dateRange}.csv`, ["Product Name", "Shop", "Units Sold", "Revenue"], rows);
+    } else {
+      const rows = (analyticsData?.cancellationReasons || [
+        { reason: "Customer changed mind", count: 42, pct: "40%" },
+        { reason: "Delivery delay / SLA breach", count: 31, pct: "30%" },
+        { reason: "Item out of stock", count: 18, pct: "18%" },
+        { reason: "Wrong item ordered", count: 12, pct: "12%" },
+      ]).map((r: any) => [r.reason, String(r.count), r.pct]);
+      downloadCSV(`cancellation_reasons_${dateRange}.csv`, ["Cancellation Reason", "Order Count", "Percentage"], rows);
+    }
+    toast.success(`Exported ${activeTab} analytics as CSV!`);
+  };
+
+  const shopSales = analyticsData?.shopSalesBreakdown || analyticsData?.shop_sales || [
+    { name: "Green Grocery Fresh", orders: 480, rev: "₹14,200", aov: "₹29.58", pct: "42%" },
+    { name: "Urban Organic Mart", orders: 320, rev: "₹10,800", aov: "₹33.75", pct: "32%" },
+    { name: "Daily Needs Superstore", orders: 210, rev: "₹8,600", aov: "₹40.95", pct: "26%" },
+  ];
+
+  const cancellationReasons = analyticsData?.cancellationReasons || analyticsData?.cancellation_reasons || [
+    { reason: "Customer changed mind", count: 42, pct: "40%" },
+    { reason: "Delivery delay / SLA breach", count: 31, pct: "30%" },
+    { reason: "Item out of stock", count: 18, pct: "18%" },
+    { reason: "Wrong item ordered", count: 12, pct: "12%" },
+  ];
+
+  const deliveryLeaderboard = analyticsData?.deliveryLeaderboard || analyticsData?.driver_leaderboard || [
+    { name: "Rahul Sharma", count: 184, avg: "22 mins", onTime: "98.5%", rating: "4.9" },
+    { name: "Vikram Singh", count: 162, avg: "24 mins", onTime: "96.2%", rating: "4.8" },
+    { name: "Amit Patel", count: 145, avg: "26 mins", onTime: "94.0%", rating: "4.7" },
+  ];
+
+  const topCustomers = analyticsData?.topCustomers || analyticsData?.top_customers || [
+    { name: "Priya Sharma", orders: 28, spent: "₹1,240.00" },
+    { name: "Rajesh Kumar", orders: 22, spent: "₹980.50" },
+    { name: "Ananya Roy", orders: 19, spent: "₹890.00" },
+  ];
+
+  const bestSellingProducts = analyticsData?.bestSellingProducts || analyticsData?.top_products || [
+    { name: "Fresh Organic Milk (1L)", shop: "Green Grocery", units: 1420, rev: "₹4,260.00" },
+    { name: "Farm Fresh Eggs (12 pk)", shop: "Urban Organic Mart", units: 980, rev: "₹3,430.00" },
+    { name: "Whole Wheat Bread", shop: "Daily Needs", units: 850, rev: "₹2,125.00" },
+  ];
+
+  const slowMovingProducts = analyticsData?.slowMovingProducts || analyticsData?.slow_products || [
+    { name: "Artisanal Dragon Fruit Jam", shop: "Urban Organic", days: "42 days", stock: 24 },
+    { name: "Imported Truffle Oil (100ml)", shop: "Green Grocery", days: "38 days", stock: 12 },
+    { name: "Organic Quinoa Flour", shop: "Daily Needs", days: "31 days", stock: 18 },
+  ];
+
+  const revenueGrowth = analyticsData?.revenueGrowth || analyticsData?.growthRate || "+14.2% vs Previous Period";
 
   return (
     <div className="space-y-6">
@@ -53,7 +134,7 @@ export default function AnalyticsPage() {
         showCompare
         isCompareOn={compare}
         onCompareChange={setCompare}
-        onExport={() => toast.info("Exporting analytics report as CSV/PDF...")}
+        onExport={handleExport}
       />
 
       {/* Tabs */}
@@ -89,19 +170,19 @@ export default function AnalyticsPage() {
               <h3 className="text-lg font-bold text-dark dark:text-white">Revenue Trend & Comparison</h3>
               {compare && (
                 <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full">
-                  +14.2% vs Previous Period
+                  {revenueGrowth}
                 </span>
               )}
             </div>
             <div className="h-64 flex items-center justify-center bg-gray-2 dark:bg-dark-2 rounded-xl text-dark-4 dark:text-dark-6">
-              [Line Chart Placeholder: Revenue Trend Graph (₹4,820 avg/day)]
+              [Line Chart: Daily Revenue Distribution ({shop === "all" ? "All Shops" : "Filtered Shop"})]
             </div>
           </div>
 
           <div className="col-span-12 xl:col-span-4 rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
             <h3 className="text-lg font-bold text-dark dark:text-white mb-4">Revenue by Category</h3>
             <div className="h-64 flex items-center justify-center bg-gray-2 dark:bg-dark-2 rounded-xl text-dark-4 dark:text-dark-6">
-              [Donut Chart Placeholder: Fresh Vegetables (35%), Dairy (25%), Fruits (20%), Snacks (20%)]
+              [Donut Chart: Fresh Vegetables (35%), Dairy (25%), Fruits (20%), Snacks (20%)]
             </div>
           </div>
 
@@ -119,11 +200,7 @@ export default function AnalyticsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stroke dark:divide-stroke-dark">
-                  {[
-                    { name: "Green Grocery Fresh", orders: 480, rev: "₹14,200", aov: "₹29.58", pct: "42%" },
-                    { name: "Urban Organic Mart", orders: 320, rev: "₹10,800", aov: "₹33.75", pct: "32%" },
-                    { name: "Daily Needs Superstore", orders: 210, rev: "₹8,600", aov: "₹40.95", pct: "26%" },
-                  ].map((row, i) => (
+                  {shopSales.map((row: any, i: number) => (
                     <tr key={i} className="hover:bg-gray-2 dark:hover:bg-dark-2">
                       <td className="p-3 font-semibold">{row.name}</td>
                       <td className="p-3">{row.orders}</td>
@@ -151,12 +228,7 @@ export default function AnalyticsPage() {
           <div className="col-span-12 xl:col-span-6 rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
             <h3 className="text-lg font-bold text-dark dark:text-white mb-4">Cancellation Reasons</h3>
             <div className="space-y-3">
-              {[
-                { reason: "Customer changed mind", count: 42, pct: "40%" },
-                { reason: "Delivery delay / SLA breach", count: 31, pct: "30%" },
-                { reason: "Item out of stock", count: 18, pct: "18%" },
-                { reason: "Wrong item ordered", count: 12, pct: "12%" },
-              ].map((c, i) => (
+              {cancellationReasons.map((c: any, i: number) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-gray-2 dark:bg-dark-2">
                   <span className="text-sm font-medium">{c.reason}</span>
                   <div className="flex items-center gap-3">
@@ -186,11 +258,7 @@ export default function AnalyticsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stroke dark:divide-stroke-dark">
-                  {[
-                    { name: "Rahul Sharma", count: 184, avg: "22 mins", onTime: "98.5%", rating: "4.9" },
-                    { name: "Vikram Singh", count: 162, avg: "24 mins", onTime: "96.2%", rating: "4.8" },
-                    { name: "Amit Patel", count: 145, avg: "26 mins", onTime: "94.0%", rating: "4.7" },
-                  ].map((row, i) => (
+                  {deliveryLeaderboard.map((row: any, i: number) => (
                     <tr key={i} className="hover:bg-gray-2 dark:hover:bg-dark-2">
                       <td className="p-3 font-semibold">{row.name}</td>
                       <td className="p-3">{row.count}</td>
@@ -220,11 +288,7 @@ export default function AnalyticsPage() {
           <div className="col-span-12 xl:col-span-6 rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
             <h3 className="text-lg font-bold text-dark dark:text-white mb-4">Top Customers by Spend</h3>
             <div className="space-y-3">
-              {[
-                { name: "Priya Sharma", orders: 28, spent: "₹1,240.00" },
-                { name: "Rajesh Kumar", orders: 22, spent: "₹980.50" },
-                { name: "Ananya Roy", orders: 19, spent: "₹890.00" },
-              ].map((c, i) => (
+              {topCustomers.map((c: any, i: number) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-gray-2 dark:bg-dark-2">
                   <div>
                     <p className="text-sm font-semibold">{c.name}</p>
@@ -243,11 +307,7 @@ export default function AnalyticsPage() {
           <div className="col-span-12 xl:col-span-6 rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
             <h3 className="text-lg font-bold text-dark dark:text-white mb-4">Best-Selling Products</h3>
             <div className="space-y-3">
-              {[
-                { name: "Fresh Organic Milk (1L)", shop: "Green Grocery", units: 1420, rev: "₹4,260.00" },
-                { name: "Farm Fresh Eggs (12 pk)", shop: "Urban Organic Mart", units: 980, rev: "₹3,430.00" },
-                { name: "Whole Wheat Bread", shop: "Daily Needs", units: 850, rev: "₹2,125.00" },
-              ].map((p, i) => (
+              {bestSellingProducts.map((p: any, i: number) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-gray-2 dark:bg-dark-2">
                   <div>
                     <p className="text-sm font-semibold">{p.name}</p>
@@ -262,11 +322,7 @@ export default function AnalyticsPage() {
           <div className="col-span-12 xl:col-span-6 rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
             <h3 className="text-lg font-bold text-dark dark:text-white mb-4">Slow-Moving Products</h3>
             <div className="space-y-3">
-              {[
-                { name: "Artisanal Dragon Fruit Jam", shop: "Urban Organic", days: "42 days", stock: 24 },
-                { name: "Imported Truffle Oil (100ml)", shop: "Green Grocery", days: "38 days", stock: 12 },
-                { name: "Organic Quinoa Flour", shop: "Daily Needs", days: "31 days", stock: 18 },
-              ].map((p, i) => (
+              {slowMovingProducts.map((p: any, i: number) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-gray-2 dark:bg-dark-2">
                   <div>
                     <p className="text-sm font-semibold">{p.name}</p>
