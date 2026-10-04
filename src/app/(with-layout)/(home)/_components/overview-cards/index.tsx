@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { OverviewCard } from "./card";
 import * as icons from "./icons";
+import { OverviewCardsSkeleton } from "./skeleton";
 
 interface MetricsData {
   monthlyRev: string;
@@ -20,23 +21,9 @@ interface MetricsData {
   openTicketsGrowth: number;
 }
 
-const DEFAULT_METRICS: MetricsData = {
-  monthlyRev: "₹14,250",
-  monthlyRevGrowth: 14.2,
-  activeShops: "185",
-  activeShopsGrowth: 8.5,
-  pendingShops: "14",
-  pendingShopsGrowth: -2.4,
-  activeDrivers: "42/50",
-  activeDriversGrowth: 5.0,
-  unassignedOrders: "8",
-  unassignedOrdersGrowth: -15.0,
-  openTickets: "5",
-  openTicketsGrowth: -10.0,
-};
-
 export function OverviewCardsGroup() {
-  const [metrics, setMetrics] = useState<MetricsData>(DEFAULT_METRICS);
+  const [metrics, setMetrics] = useState<MetricsData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadMetrics() {
@@ -45,23 +32,33 @@ export function OverviewCardsGroup() {
         const res = await fetchApi("/analytics/dashboard-summary");
         const data = res?.data || res;
         if (data && typeof data === "object") {
-          setMetrics((prev) => ({
-            ...prev,
-            monthlyRev: data.monthlySubscriptionRev || data.monthly_revenue || prev.monthlyRev,
-            monthlyRevGrowth: typeof data.monthlySubscriptionRevGrowth === "number" ? data.monthlySubscriptionRevGrowth : prev.monthlyRevGrowth,
-            activeShops: data.activePremiumShops !== undefined ? String(data.activePremiumShops) : prev.activeShops,
-            pendingShops: data.pendingShops !== undefined ? String(data.pendingShops) : prev.pendingShops,
-            activeDrivers: data.activeDeliveryDrivers || prev.activeDrivers,
-            unassignedOrders: data.unassignedOrders !== undefined ? String(data.unassignedOrders) : prev.unassignedOrders,
-            openTickets: data.openSupportTickets !== undefined ? String(data.openSupportTickets) : prev.openTickets,
-          }));
+          setMetrics({
+            monthlyRev: data.monthlySubscriptionRev || (typeof data.monthly_revenue === "number" ? `₹${data.monthly_revenue.toLocaleString()}` : "₹0"),
+            monthlyRevGrowth: typeof data.monthlySubscriptionRevGrowth === "number" ? data.monthlySubscriptionRevGrowth : 0,
+            activeShops: String(data.activePremiumShops ?? data.active_shops ?? 0),
+            activeShopsGrowth: typeof data.activePremiumShopsGrowth === "number" ? data.activePremiumShopsGrowth : 0,
+            pendingShops: String(data.pendingShops ?? 0),
+            pendingShopsGrowth: typeof data.pendingShopsGrowth === "number" ? data.pendingShopsGrowth : 0,
+            activeDrivers: data.activeDeliveryDrivers || "0/0",
+            activeDriversGrowth: typeof data.activeDeliveryDriversGrowth === "number" ? data.activeDeliveryDriversGrowth : 0,
+            unassignedOrders: String(data.unassignedOrders ?? 0),
+            unassignedOrdersGrowth: typeof data.unassignedOrdersGrowth === "number" ? data.unassignedOrdersGrowth : 0,
+            openTickets: String(data.openSupportTickets ?? 0),
+            openTicketsGrowth: typeof data.openSupportTicketsGrowth === "number" ? data.openSupportTicketsGrowth : 0,
+          });
         }
       } catch (err: any) {
-        if (err?.status !== 404) console.error("Failed to load dashboard overview summary:", err);
+        console.error("Failed to load dashboard overview summary:", err);
+      } finally {
+        setLoading(false);
       }
     }
     loadMetrics();
   }, []);
+
+  if (loading || !metrics) {
+    return <OverviewCardsSkeleton />;
+  }
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 sm:gap-6 2xl:gap-7.5">
