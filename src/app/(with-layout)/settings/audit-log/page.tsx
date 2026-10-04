@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { FilterBar } from "@/components/common/filter-bar";
 
 interface AuditEntry {
@@ -76,7 +77,7 @@ export default function AuditLogPage() {
         searchPlaceholder="Filter audit log by admin, action, or module..."
         searchValue={search}
         onSearchChange={setSearch}
-        onExport={() => alert("Exporting Audit Logs CSV...")}
+        onExport={() => toast.info("Exporting Audit Logs CSV...")}
       />
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">

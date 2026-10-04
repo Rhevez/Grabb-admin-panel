@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { ConfirmModal } from "@/components/common/confirm-modal";
+import { DocumentIcon, CheckIcon } from "@/assets/icons";
 
 interface Applicant {
   id: string;
@@ -31,13 +33,13 @@ export default function PartnerOnboardingPage() {
 
   const handleApprove = (id: string) => {
     setApplicants((prev) => prev.filter((a) => a.id !== id));
-    alert("Partner application approved! Fleet member is now verified and active.");
+    toast.success("Partner application approved! Fleet member is now verified and active.");
   };
 
   const handleReject = (reason?: string) => {
     if (!rejectTargetId) return;
     setApplicants((prev) => prev.filter((a) => a.id !== rejectTargetId));
-    alert(`Application rejected with reason: ${reason}`);
+    toast.info(`Application rejected with reason: ${reason}`);
     setRejectTargetId(null);
   };
 
@@ -74,11 +76,13 @@ export default function PartnerOnboardingPage() {
                   <td className="p-3 text-xs font-medium">{a.vehicleType}</td>
                   <td className="p-3 text-xs text-dark-4 dark:text-dark-6">{a.submittedDate}</td>
                   <td className="p-3 space-x-2">
-                    <button onClick={() => alert(`Previewing ${a.licenseDoc}`)} className="text-xs font-bold text-primary underline">
-                      Driving License 📄
+                    <button onClick={() => toast.info(`Previewing ${a.licenseDoc}`)} className="inline-flex items-center gap-1 text-xs font-bold text-primary underline">
+                      <DocumentIcon className="w-3.5 h-3.5" />
+                      Driving License
                     </button>
-                    <button onClick={() => alert(`Previewing ${a.idDoc}`)} className="text-xs font-bold text-primary underline">
-                      ID Proof 📄
+                    <button onClick={() => toast.info(`Previewing ${a.idDoc}`)} className="inline-flex items-center gap-1 text-xs font-bold text-primary underline">
+                      <DocumentIcon className="w-3.5 h-3.5" />
+                      ID Proof
                     </button>
                   </td>
                   <td className="p-3 text-right space-x-2">
@@ -100,7 +104,10 @@ export default function PartnerOnboardingPage() {
               {applicants.length === 0 && (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-sm font-bold text-emerald-500">
-                    ✓ All delivery partner onboarding applications have been processed!
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <CheckIcon className="w-4 h-4 stroke-[2.5]" />
+                      All delivery partner onboarding applications have been processed!
+                    </span>
                   </td>
                 </tr>
               )}

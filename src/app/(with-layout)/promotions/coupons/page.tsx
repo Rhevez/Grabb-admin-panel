@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { TrashTabWrapper } from "@/components/common/trash-tab-wrapper";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 import { TableActionsDropdown } from "@/components/common/table-actions-dropdown";
@@ -137,7 +138,7 @@ export default function CouponsPage() {
                             ? [
                                 {
                                   label: "Edit Coupon",
-                                  onClick: () => alert(`Editing coupon: ${c.code}...`),
+                                  onClick: () => toast.info(`Editing coupon: ${c.code}...`),
                                   variant: "primary",
                                 },
                                 {

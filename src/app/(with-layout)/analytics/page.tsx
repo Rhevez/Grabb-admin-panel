@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { FilterBar } from "@/components/common/filter-bar";
 import { StatusBadge } from "@/components/common/status-badge";
+import { StarIcon } from "@/assets/icons";
 
 type TabType = "sales" | "orders" | "delivery" | "customers" | "products";
 
@@ -11,6 +13,25 @@ export default function AnalyticsPage() {
   const [dateRange, setDateRange] = useState("7d");
   const [shop, setShop] = useState("all");
   const [compare, setCompare] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [dateRange, shop]);
+
+  const fetchAnalytics = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi(`/analytics/dashboard-summary?dateRange=${dateRange}&shop=${shop}`);
+      const data = res?.data || res;
+      if (data) setAnalyticsData(data);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch analytics:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -32,7 +53,7 @@ export default function AnalyticsPage() {
         showCompare
         isCompareOn={compare}
         onCompareChange={setCompare}
-        onExport={() => alert("Exporting analytics report as CSV/PDF...")}
+        onExport={() => toast.info("Exporting analytics report as CSV/PDF...")}
       />
 
       {/* Tabs */}
@@ -166,16 +187,19 @@ export default function AnalyticsPage() {
                 </thead>
                 <tbody className="divide-y divide-stroke dark:divide-stroke-dark">
                   {[
-                    { name: "Rahul Sharma", count: 184, avg: "22 mins", onTime: "98.5%", rating: "4.9 ★" },
-                    { name: "Vikram Singh", count: 162, avg: "24 mins", onTime: "96.2%", rating: "4.8 ★" },
-                    { name: "Amit Patel", count: 145, avg: "26 mins", onTime: "94.0%", rating: "4.7 ★" },
+                    { name: "Rahul Sharma", count: 184, avg: "22 mins", onTime: "98.5%", rating: "4.9" },
+                    { name: "Vikram Singh", count: 162, avg: "24 mins", onTime: "96.2%", rating: "4.8" },
+                    { name: "Amit Patel", count: 145, avg: "26 mins", onTime: "94.0%", rating: "4.7" },
                   ].map((row, i) => (
                     <tr key={i} className="hover:bg-gray-2 dark:hover:bg-dark-2">
                       <td className="p-3 font-semibold">{row.name}</td>
                       <td className="p-3">{row.count}</td>
                       <td className="p-3">{row.avg}</td>
                       <td className="p-3 font-bold text-emerald-500">{row.onTime}</td>
-                      <td className="p-3 text-amber-500 font-bold">{row.rating}</td>
+                      <td className="p-3 text-amber-500 font-bold inline-flex items-center gap-1">
+                        <StarIcon className="w-3.5 h-3.5 fill-current" />
+                        {row.rating}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

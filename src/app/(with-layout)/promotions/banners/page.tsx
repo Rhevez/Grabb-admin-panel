@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { TrashTabWrapper } from "@/components/common/trash-tab-wrapper";
 import { ConfirmModal } from "@/components/common/confirm-modal";
+import { ImageIcon } from "@/assets/icons";
 
 interface Banner {
   id: string;
@@ -63,7 +65,7 @@ export default function BannersPage() {
 
   const handleSave = async () => {
     if (!title.trim() || !imageUrl) {
-      alert("Please enter title and upload an image");
+      toast.error("Please enter title and upload an image");
       return;
     }
     
@@ -102,8 +104,9 @@ export default function BannersPage() {
       setModalOpen(false);
       setTitle("");
       setImageUrl("");
+      toast.success("Banner saved successfully!");
     } catch (err: any) {
-      alert(err.message || "Failed to save banner");
+      toast.error(err.message || "Failed to save banner");
     }
   };
 
@@ -119,8 +122,9 @@ export default function BannersPage() {
         if (err?.status !== 404) throw err;
       }
       setBanners((prev) => prev.map((b) => (b.id === id ? { ...b, isDeleted: true } : b)));
+      toast.success("Banner moved to trash");
     } catch (err: any) {
-      alert(err.message || "Failed to delete banner");
+      toast.error(err.message || "Failed to delete banner");
     }
   };
 
@@ -136,8 +140,9 @@ export default function BannersPage() {
         if (err?.status !== 404) throw err;
       }
       setBanners((prev) => prev.map((b) => (b.id === id ? { ...b, isDeleted: false } : b)));
+      toast.success("Banner restored successfully");
     } catch (err: any) {
-      alert(err.message || "Failed to restore banner");
+      toast.error(err.message || "Failed to restore banner");
     }
   };
 
@@ -173,8 +178,9 @@ export default function BannersPage() {
               key={b.id}
               className="col-span-12 md:col-span-6 xl:col-span-4 rounded-2xl bg-white p-5 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark space-y-3"
             >
-              <div className="h-36 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-dashed border-emerald-500/30 text-emerald-600 font-bold text-center p-4">
-                🖼️ [Banner Image Preview Aspect 16:9]
+              <div className="h-36 bg-emerald-500/10 rounded-xl flex items-center justify-center gap-2 border border-dashed border-emerald-500/30 text-emerald-600 font-bold text-center p-4">
+                <ImageIcon className="w-5 h-5" />
+                <span>[Banner Image Preview Aspect 16:9]</span>
               </div>
               <div>
                 <div className="flex items-center justify-between">
@@ -243,10 +249,10 @@ export default function BannersPage() {
                           method: "POST",
                           body: formData
                         });
-                        alert("Uploaded successfully");
+                        toast.success("Uploaded successfully");
                         setImageUrl(res.url);
                       } catch (err: any) {
-                        alert(err.message);
+                        toast.error(err.message || "Failed to upload image");
                       }
                     }
                   }}

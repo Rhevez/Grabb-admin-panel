@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { FilterBar } from "@/components/common/filter-bar";
 import { StatusBadge } from "@/components/common/status-badge";
 import { TableActionsDropdown } from "@/components/common/table-actions-dropdown";
+import { StarIcon } from "@/assets/icons";
 
 interface DeliveryPartner {
   id: string;
@@ -29,7 +31,7 @@ export default function DeliveryPartnersPage() {
       vehicleType: "Motorcycle",
       status: "online",
       activeDeliveries: 1,
-      rating: "4.9 ★",
+      rating: "4.9",
       verificationStatus: "approved",
     },
     {
@@ -39,7 +41,7 @@ export default function DeliveryPartnersPage() {
       vehicleType: "Electric Scooter",
       status: "busy",
       activeDeliveries: 2,
-      rating: "4.8 ★",
+      rating: "4.8",
       verificationStatus: "approved",
     },
     {
@@ -49,7 +51,7 @@ export default function DeliveryPartnersPage() {
       vehicleType: "Bicycle",
       status: "offline",
       activeDeliveries: 0,
-      rating: "4.7 ★",
+      rating: "4.7",
       verificationStatus: "approved",
     },
     {
@@ -92,7 +94,7 @@ export default function DeliveryPartnersPage() {
         searchPlaceholder="Search partner name or phone..."
         searchValue={search}
         onSearchChange={setSearch}
-        onExport={() => alert("Exporting Fleet Report...")}
+        onExport={() => toast.info("Exporting Fleet Report...")}
       />
 
       {/* Status Chips */}
@@ -139,7 +141,16 @@ export default function DeliveryPartnersPage() {
                     <StatusBadge status={p.status} />
                   </td>
                   <td className="p-3 font-bold">{p.activeDeliveries} active</td>
-                  <td className="p-3 font-bold text-amber-500">{p.rating}</td>
+                  <td className="p-3 font-bold text-amber-500">
+                    {p.rating !== "N/A" ? (
+                      <span className="inline-flex items-center gap-1">
+                        <StarIcon className="w-3.5 h-3.5 fill-current" />
+                        {p.rating}
+                      </span>
+                    ) : (
+                      "N/A"
+                    )}
+                  </td>
                   <td className="p-3">
                     <StatusBadge status={p.verificationStatus} />
                   </td>
@@ -153,7 +164,7 @@ export default function DeliveryPartnersPage() {
                         },
                         {
                           label: "Edit Partner",
-                          onClick: () => alert(`Editing partner: ${p.name}...`),
+                          onClick: () => toast.info(`Editing partner: ${p.name}...`),
                         },
                       ]}
                     />

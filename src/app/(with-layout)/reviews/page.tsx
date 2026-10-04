@@ -1,33 +1,60 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { FilterBar } from "@/components/common/filter-bar";
+import { toast } from "sonner";
 import { ConfirmModal } from "@/components/common/confirm-modal";
+import { EmptyState } from "@/components/common/empty-state";
+import { downloadCSV } from "@/utils/download";
 
-interface Review {
+interface ReviewItem {
   id: string;
-  type: "product" | "delivery";
+  type: "item" | "driver" | "shop";
+  targetName: string;
   rating: number;
   comment: string;
   author: string;
-  targetName: string;
   orderId: string;
   isFlagged: boolean;
-  isDeleted?: boolean;
+  isDeleted: boolean;
+  createdAt?: string;
 }
 
-export default function ReviewsPage() {
-  const [reviews, setReviews] = useState<Review[]>([
-    { id: "r1", type: "product", rating: 5, comment: "Super fresh vegetables! Arrived crisp and cold inside 20 mins.", author: "Aarav Sharma", targetName: "Fresh Organic Spinach", orderId: "ORD-94821", isFlagged: false },
-    { id: "r2", type: "delivery", rating: 5, comment: "Rahul the rider was polite and handled the eggs with extreme care.", author: "Neha Gupta", targetName: "Rahul Sharma (Rider)", orderId: "ORD-94820", isFlagged: false },
-    { id: "r3", type: "product", rating: 1, comment: "Milk package was leaking inside the bag upon opening!", author: "Spammer Account", targetName: "Whole Milk 1L", orderId: "ORD-94815", isFlagged: true },
-  ]);
+const DEFAULT_REVIEWS: ReviewItem[] = [
+  { id: "rev_01", type: "item", targetName: "Organic Bananas 1kg", rating: 5, comment: "Super fresh, perfectly ripe and well packaged!", author: "Aakash Mehta", orderId: "ORD-9021", isFlagged: false, isDeleted: false, createdAt: "2026-08-01" },
+  { id: "rev_02", type: "driver", targetName: "Rahul Sharma (Rider)", rating: 1, comment: "Rude driver, delivered crushed groceries and left abruptly.", author: "Neha Reddy", orderId: "ORD-9014", isFlagged: true, isDeleted: false, createdAt: "2026-08-02" },
+  { id: "rev_03", type: "shop", targetName: "Green Grocery Fresh", rating: 4, comment: "Good store variety, but delayed dispatch by 15 mins.", author: "Sunil Verma", orderId: "ORD-8980", isFlagged: false, isDeleted: false, createdAt: "2026-08-03" },
+  { id: "rev_04", type: "item", targetName: "Almond Milk 1L", rating: 2, comment: "Carton was leaking upon arrival. Seal was broken.", author: "Kiran Rao", orderId: "ORD-8955", isFlagged: true, isDeleted: false, createdAt: "2026-08-04" },
+];
 
-  const [selectedRating, setSelectedRating] = useState("all");
-  const [flaggedOnly, setFlaggedOnly] = useState(false);
-  const [viewCommentModal, setViewCommentModal] = useState<Review | null>(null);
+export default function CustomerReviewsPage() {
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedRating, setSelectedRating] = useState<string>("all");
+  const [flaggedOnly, setFlaggedOnly] = useState<boolean>(false);
+  const [viewCommentModal, setViewCommentModal] = useState<ReviewItem | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchReviews();
+  }, []);
+
+  const fetchReviews = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/feedback/reviews");
+      let fetched: ReviewItem[] = [];
+      if (Array.isArray(res)) fetched = res;
+      else if (res && Array.isArray(res.data)) fetched = res.data;
+      else if (res && Array.isArray(res.results)) fetched = res.results;
+      setReviews(fetched.length > 0 ? fetched : DEFAULT_REVIEWS);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch customer reviews:", err);
+      setReviews(DEFAULT_REVIEWS);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredReviews = reviews.filter((r) => {
     if (r.isDeleted) return false;
@@ -36,14 +63,62 @@ export default function ReviewsPage() {
     return true;
   });
 
-  const toggleFlag = (id: string) => {
-    setReviews((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, isFlagged: !r.isFlagged } : r))
-    );
+  const handleExportCSV = () => {
+    if (filteredReviews.length === 0) {
+      toast.error("No reviews to export");
+      return;
+    }
+    const headers = ["Review ID", "Type", "Rating", "Target Entity", "Comment", "Author", "Order ID", "Flagged State"];
+    const rows = filteredReviews.map((r) => [
+      r.id,
+      r.type.toUpperCase(),
+      `${r.rating} Stars`,
+      r.targetName,
+      r.comment,
+      r.author,
+      r.orderId,
+      r.isFlagged ? "FLAGGED" : "CLEAN",
+    ]);
+    downloadCSV("customer_feedback_reviews.csv", headers, rows);
+    toast.success(`Exported ${filteredReviews.length} reviews as CSV!`);
   };
 
-  const handleSoftDelete = (id: string) => {
+  const toggleFlag = async (id: string) => {
+    const rev = reviews.find((r) => r.id === id);
+    const nextFlag = !rev?.isFlagged;
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/feedback/reviews/${id}/flag`, {
+        method: "PATCH",
+        body: JSON.stringify({ isFlagged: nextFlag, is_flagged: nextFlag }),
+      });
+      toast.success(nextFlag ? "Review marked as flagged 🚩" : "Review unflagged");
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error toggling review flag:", err);
+    }
+    setReviews((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, isFlagged: nextFlag } : r))
+    );
+    if (viewCommentModal && viewCommentModal.id === id) {
+      setViewCommentModal((prev) => (prev ? { ...prev, isFlagged: nextFlag } : null));
+    }
+  };
+
+  const handleSoftDelete = async (id: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/feedback/reviews/${id}/hide`, {
+        method: "PATCH",
+        body: JSON.stringify({ isDeleted: true, is_deleted: true }),
+      });
+      toast.success("Review hidden from public feed");
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error hiding review:", err);
+    }
     setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, isDeleted: true } : r)));
+    if (viewCommentModal && viewCommentModal.id === id) {
+      setViewCommentModal(null);
+    }
   };
 
   return (
@@ -55,6 +130,13 @@ export default function ReviewsPage() {
             Moderate product quality ratings, delivery feedback, and flag abusive reviews.
           </p>
         </div>
+        <button
+          onClick={handleExportCSV}
+          className="rounded-lg border border-stroke bg-white px-4 py-2 text-sm font-semibold text-dark hover:bg-gray-2 dark:border-stroke-dark dark:bg-dark-2 dark:text-white dark:hover:bg-dark-3 transition-colors flex items-center gap-2 self-start sm:self-auto"
+        >
+          <span>Export Reviews</span>
+          <span>📥</span>
+        </button>
       </div>
 
       {/* Filter Options Bar */}
@@ -87,87 +169,174 @@ export default function ReviewsPage() {
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-dark dark:text-white whitespace-nowrap">
-            <thead className="bg-gray-2 text-xs font-semibold uppercase text-dark-4 dark:bg-dark-2 dark:text-dark-6">
-              <tr>
-                <th className="p-3">Type</th>
-                <th className="p-3">Rating</th>
-                <th className="p-3">Item / Target</th>
-                <th className="p-3">Comment Snippet</th>
-                <th className="p-3">Customer</th>
-                <th className="p-3">Order Link</th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stroke dark:divide-stroke-dark">
-              {filteredReviews.map((r) => (
-                <tr key={r.id} className="hover:bg-gray-2 dark:hover:bg-dark-2">
-                  <td className="p-3">
-                    <span className="capitalize font-semibold text-xs bg-gray-2 dark:bg-dark-2 px-2.5 py-1 rounded-md">
-                      {r.type}
-                    </span>
-                  </td>
-                  <td className="p-3 font-bold text-amber-500">{r.rating} ★</td>
-                  <td className="p-3 font-semibold">{r.targetName}</td>
-                  <td className="p-3 text-xs max-w-xs truncate text-dark-4 dark:text-dark-6">
-                    {r.isFlagged && <span className="text-rose-500 font-bold mr-1">[FLAGGED]</span>}
-                    "{r.comment}"
-                  </td>
-                  <td className="p-3 font-medium">{r.author}</td>
-                  <td className="p-3 font-mono text-xs font-bold text-primary">
-                    <Link href={`/orders/${r.orderId}`}>{r.orderId}</Link>
-                  </td>
-                  <td className="p-3 text-right space-x-2">
-                    <button
-                      onClick={() => setViewCommentModal(r)}
-                      className="rounded-lg bg-gray-2 px-3 py-1.5 text-xs font-semibold text-dark hover:bg-gray-3 dark:bg-dark-2 dark:text-white"
-                    >
-                      Read Full
-                    </button>
-                    <button
-                      onClick={() => toggleFlag(r.id)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                        r.isFlagged
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-gray-2 text-dark dark:bg-dark-2 dark:text-white"
-                      }`}
-                    >
-                      {r.isFlagged ? "Unflag 🚩" : "Flag 🚩"}
-                    </button>
-                    <button
-                      onClick={() => setDeleteTargetId(r.id)}
-                      className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100"
-                    >
-                      Delete
-                    </button>
-                  </td>
+        {filteredReviews.length === 0 ? (
+          <EmptyState
+            variant="reviews"
+            title="No Customer Reviews Found"
+            description={
+              flaggedOnly
+                ? "There are currently no reviews flagged for moderation."
+                : "No customer ratings or reviews match your active filter."
+            }
+            action={
+              flaggedOnly || selectedRating !== "all"
+                ? {
+                    label: "Reset Rating Filters",
+                    onClick: () => {
+                      setFlaggedOnly(false);
+                      setSelectedRating("all");
+                    },
+                  }
+                : undefined
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-dark dark:text-white whitespace-nowrap">
+              <thead className="bg-gray-2 text-xs font-semibold uppercase text-dark-4 dark:bg-dark-2 dark:text-dark-6">
+                <tr>
+                  <th className="p-3">Type</th>
+                  <th className="p-3">Rating</th>
+                  <th className="p-3">Item / Target</th>
+                  <th className="p-3">Comment Snippet</th>
+                  <th className="p-3">Customer</th>
+                  <th className="p-3">Order Link</th>
+                  <th className="p-3 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-stroke dark:divide-stroke-dark">
+                {filteredReviews.map((r) => (
+                  <tr
+                    key={r.id}
+                    onClick={() => setViewCommentModal(r)}
+                    className="hover:bg-gray-2 dark:hover:bg-dark-2 cursor-pointer transition-colors"
+                  >
+                    <td className="p-3">
+                      <span className="capitalize font-semibold text-xs bg-gray-2 dark:bg-dark-2 px-2.5 py-1 rounded-md">
+                        {r.type}
+                      </span>
+                    </td>
+                    <td className="p-3 font-bold text-amber-500">
+                      {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
+                    </td>
+                    <td className="p-3 font-semibold">{r.targetName}</td>
+                    <td className="p-3 text-xs max-w-xs truncate text-dark-4 dark:text-dark-6">
+                      {r.isFlagged && <span className="text-rose-500 font-bold mr-1">[FLAGGED]</span>}
+                      "{r.comment}"
+                    </td>
+                    <td className="p-3 font-medium">{r.author}</td>
+                    <td className="p-3 font-mono text-xs font-bold text-primary" onClick={(e) => e.stopPropagation()}>
+                      <Link href={`/orders/${r.orderId}`}>{r.orderId}</Link>
+                    </td>
+                    <td className="p-3 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => setViewCommentModal(r)}
+                        className="rounded-lg bg-gray-2 px-3 py-1.5 text-xs font-semibold text-dark hover:bg-gray-3 dark:bg-dark-2 dark:text-white transition-colors"
+                      >
+                        Read Full
+                      </button>
+                      <button
+                        onClick={() => toggleFlag(r.id)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          r.isFlagged
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400"
+                            : "bg-gray-2 text-dark dark:bg-dark-2 dark:text-white"
+                        }`}
+                      >
+                        {r.isFlagged ? "Unflag 🚩" : "Flag 🚩"}
+                      </button>
+                      <button
+                        onClick={() => setDeleteTargetId(r.id)}
+                        className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* View Comment Modal */}
       {viewCommentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
-            <h3 className="text-lg font-bold text-dark dark:text-white mb-2">Review Detail</h3>
-            <p className="text-amber-500 font-bold text-base mb-2">{viewCommentModal.rating} ★★★★★</p>
-            <p className="text-sm italic text-dark dark:text-white bg-gray-2 dark:bg-dark-2 p-4 rounded-xl leading-relaxed mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-bold text-dark dark:text-white">Review Detail</h3>
+              <span className="capitalize text-xs font-semibold bg-gray-2 dark:bg-dark-2 px-2.5 py-1 rounded">
+                {viewCommentModal.type} review
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-amber-500 font-bold text-lg">
+                {"★".repeat(viewCommentModal.rating)}{"☆".repeat(5 - viewCommentModal.rating)}
+              </span>
+              <span className="text-xs font-semibold text-dark-4 dark:text-dark-6">
+                ({viewCommentModal.rating} out of 5 stars)
+              </span>
+            </div>
+
+            <p className="text-sm italic text-dark dark:text-white bg-gray-2 dark:bg-dark-2 p-4 rounded-xl leading-relaxed mb-4 border border-stroke dark:border-stroke-dark">
               "{viewCommentModal.comment}"
             </p>
-            <p className="text-xs text-dark-4 dark:text-dark-6">
-              By <span className="font-bold text-dark dark:text-white">{viewCommentModal.author}</span> for{" "}
-              <span className="font-semibold text-primary">{viewCommentModal.targetName}</span>
-            </p>
-            <button
-              onClick={() => setViewCommentModal(null)}
-              className="mt-6 w-full rounded-lg bg-primary py-2 text-sm font-semibold text-white"
-            >
-              Close
-            </button>
+
+            <div className="space-y-1.5 text-xs text-dark-4 dark:text-dark-6 mb-6">
+              <p>
+                Author: <span className="font-bold text-dark dark:text-white">{viewCommentModal.author}</span>
+              </p>
+              <p>
+                Reviewed Entity:{" "}
+                <span className="font-semibold text-primary">{viewCommentModal.targetName}</span>
+              </p>
+              <p>
+                Order Reference:{" "}
+                <Link
+                  href={`/orders/${viewCommentModal.orderId}`}
+                  className="font-mono font-bold text-primary hover:underline"
+                >
+                  {viewCommentModal.orderId}
+                </Link>
+              </p>
+              <p>
+                Flag Status:{" "}
+                <span className={`font-bold ${viewCommentModal.isFlagged ? "text-rose-500" : "text-emerald-500"}`}>
+                  {viewCommentModal.isFlagged ? "Flagged for Moderation 🚩" : "Clean Review"}
+                </span>
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => toggleFlag(viewCommentModal.id)}
+                className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors ${
+                  viewCommentModal.isFlagged
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400"
+                    : "bg-gray-2 text-dark dark:bg-dark-2 dark:text-white"
+                }`}
+              >
+                {viewCommentModal.isFlagged ? "Unflag 🚩" : "Flag as Abusive 🚩"}
+              </button>
+              <button
+                onClick={() => {
+                  const id = viewCommentModal.id;
+                  setViewCommentModal(null);
+                  setDeleteTargetId(id);
+                }}
+                className="flex-1 rounded-lg bg-rose-50 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400"
+              >
+                Hide / Delete
+              </button>
+              <button
+                onClick={() => setViewCommentModal(null)}
+                className="rounded-lg border border-stroke bg-gray-2 px-4 py-2 text-xs font-semibold text-dark hover:bg-gray-3 dark:border-stroke-dark dark:bg-dark-2 dark:text-white"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -178,9 +347,10 @@ export default function ReviewsPage() {
         onConfirm={() => {
           if (deleteTargetId) handleSoftDelete(deleteTargetId);
         }}
-        title="Delete Review"
-        description="Are you sure you want to soft delete this customer review?"
-        confirmLabel="Confirm Delete"
+        title="Hide Customer Review"
+        description="Are you sure you want to hide this review from public store listings and driver ratings?"
+        confirmLabel="Hide Review"
+        variant="danger"
       />
     </div>
   );

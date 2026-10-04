@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 interface PushHistory {
   id: string;
@@ -51,7 +52,7 @@ export default function PushNotificationsPage() {
       ...prev,
     ]);
 
-    alert("Push notification sent to broadcast queue successfully!");
+    toast.success("Push notification sent to broadcast queue successfully!");
     setTitle("");
     setBody("");
   };

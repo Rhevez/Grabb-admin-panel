@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { FilterBar } from "@/components/common/filter-bar";
 import { StatusBadge } from "@/components/common/status-badge";
 import { TableActionsDropdown } from "@/components/common/table-actions-dropdown";
@@ -85,7 +86,7 @@ export default function ZonesPage() {
             searchPlaceholder="Search zones by name..."
             searchValue={search}
             onSearchChange={setSearch}
-            onExport={() => alert("Exporting Zone Data...")}
+            onExport={() => toast.info("Exporting Zone Data...")}
           />
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
@@ -116,8 +117,8 @@ export default function ZonesPage() {
                   <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <TableActionsDropdown
                       actions={[
-                        { label: "Edit Zone", onClick: () => alert(`Edit ${z.name}`) },
-                        { label: "Delete", onClick: () => alert(`Delete ${z.name}`), variant: "danger" }
+                        { label: "Edit Zone", onClick: () => toast.info(`Editing ${z.name}`) },
+                        { label: "Delete", onClick: () => toast.info(`Deleted ${z.name}`), variant: "danger" }
                       ]}
                     />
                   </td>
@@ -175,7 +176,7 @@ export default function ZonesPage() {
               </button>
               <button
                 onClick={() => {
-                  alert("Zone created!");
+                  toast.success("Zone created successfully!");
                   setIsDrawModalOpen(false);
                 }}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"

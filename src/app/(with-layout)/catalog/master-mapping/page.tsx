@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { FilterBar } from "@/components/common/filter-bar";
 import { StatusBadge } from "@/components/common/status-badge";
 
@@ -13,19 +14,93 @@ interface MasterProduct {
   mappedShops: number;
 }
 
+const DEFAULT_MASTER_PRODUCTS: MasterProduct[] = [
+  { id: "mp-1", name: "Coca-Cola 2L PET", barcode: "890103001001", category: "Beverages", globalPriceRef: "₹2.00", mappedShops: 42 },
+  { id: "mp-2", name: "Amul Butter 100g", barcode: "890126215001", category: "Dairy", globalPriceRef: "₹0.80", mappedShops: 65 },
+  { id: "mp-3", name: "Lays Classic Salted 50g", barcode: "890149110001", category: "Snacks", globalPriceRef: "₹0.50", mappedShops: 58 },
+];
+
 export default function MasterCatalogMappingPage() {
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [masterProducts, setMasterProducts] = useState<MasterProduct[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [masterProducts, setMasterProducts] = useState<MasterProduct[]>([
-    { id: "mp-1", name: "Coca-Cola 2L PET", barcode: "890103001001", category: "Beverages", globalPriceRef: "₹2.00", mappedShops: 42 },
-    { id: "mp-2", name: "Amul Butter 100g", barcode: "890126215001", category: "Dairy", globalPriceRef: "₹0.80", mappedShops: 65 },
-    { id: "mp-3", name: "Lays Classic Salted 50g", barcode: "890149110001", category: "Snacks", globalPriceRef: "₹0.50", mappedShops: 58 },
-  ]);
+  useEffect(() => {
+    fetchMasterProducts();
+  }, []);
 
-  const filteredProducts = masterProducts.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) || p.barcode.includes(search)
+  const fetchMasterProducts = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/catalog/master-skus");
+      let fetched: MasterProduct[] = [];
+      if (Array.isArray(res)) fetched = res;
+      else if (res && Array.isArray(res.data)) fetched = res.data;
+      else if (res && Array.isArray(res.results)) fetched = res.results;
+      setMasterProducts(fetched.length > 0 ? fetched : DEFAULT_MASTER_PRODUCTS);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch master products:", err);
+      setMasterProducts(DEFAULT_MASTER_PRODUCTS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const safeProducts = Array.isArray(masterProducts) ? masterProducts : [];
+
+  const filteredProducts = safeProducts.filter((p) =>
+    (p.name || "").toLowerCase().includes(search.toLowerCase()) || (p.barcode || "").includes(search)
   );
+
+  const [submitting, setSubmitting] = useState(false);
+  const [formName, setFormName] = useState("");
+  const [formBarcode, setFormBarcode] = useState("");
+  const [formCategory, setFormCategory] = useState("Beverages");
+  const [formPrice, setFormPrice] = useState("");
+
+  const handleCreateSku = async () => {
+    if (!formName.trim() || !formBarcode.trim()) {
+      toast.error("Please enter product name and barcode");
+      return;
+    }
+
+    setSubmitting(true);
+    const payload = {
+      name: formName.trim(),
+      barcode: formBarcode.trim(),
+      category: formCategory,
+      globalPriceRef: formPrice ? `₹${parseFloat(formPrice).toFixed(2)}` : "₹0.00",
+      mappedShops: 0,
+    };
+
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      let created;
+      try {
+        created = await fetchApi("/catalog/master-skus", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      } catch (err: any) {
+        if (err?.status === 404) {
+          created = { id: `mp-${Date.now()}`, ...payload };
+        } else {
+          throw err;
+        }
+      }
+      setMasterProducts((prev) => [created || { id: `mp-${Date.now()}`, ...payload }, ...prev]);
+      setIsModalOpen(false);
+      setFormName("");
+      setFormBarcode("");
+      setFormPrice("");
+      toast.success("Master SKU created successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create master SKU");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -48,7 +123,7 @@ export default function MasterCatalogMappingPage() {
         searchPlaceholder="Search by product name or barcode..."
         searchValue={search}
         onSearchChange={setSearch}
-        onExport={() => alert("Exporting Master Catalog...")}
+        onExport={() => toast.info("Exporting Master Catalog...")}
       />
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
@@ -93,42 +168,67 @@ export default function MasterCatalogMappingPage() {
             <div className="space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-medium text-dark dark:text-white">Product Name</label>
-                <input type="text" className="w-full rounded-lg border border-stroke bg-transparent p-3 text-dark outline-none focus:border-primary dark:border-stroke-dark dark:text-white" placeholder="e.g. Coca-Cola 2L PET" />
+                <input
+                  type="text"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  className="w-full rounded-lg border border-stroke bg-transparent p-3 text-dark outline-none focus:border-primary dark:border-stroke-dark dark:text-white"
+                  placeholder="e.g. Coca-Cola 2L PET"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-dark dark:text-white">Barcode (EAN/UPC)</label>
-                  <input type="text" className="w-full rounded-lg border border-stroke bg-transparent p-3 text-dark outline-none focus:border-primary dark:border-stroke-dark dark:text-white" placeholder="e.g. 890103001001" />
+                  <input
+                    type="text"
+                    value={formBarcode}
+                    onChange={(e) => setFormBarcode(e.target.value)}
+                    className="w-full rounded-lg border border-stroke bg-transparent p-3 text-dark outline-none focus:border-primary dark:border-stroke-dark dark:text-white"
+                    placeholder="e.g. 890103001001"
+                  />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-dark dark:text-white">Category</label>
-                  <select className="w-full rounded-lg border border-stroke bg-transparent p-3 text-dark outline-none focus:border-primary dark:border-stroke-dark dark:text-white">
-                    <option value="beverages">Beverages</option>
-                    <option value="dairy">Dairy</option>
-                    <option value="snacks">Snacks</option>
+                  <select
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value)}
+                    className="w-full rounded-lg border border-stroke bg-transparent p-3 text-dark outline-none focus:border-primary dark:border-stroke-dark dark:text-white"
+                  >
+                    <option value="Beverages">Beverages</option>
+                    <option value="Dairy">Dairy</option>
+                    <option value="Snacks">Snacks</option>
+                    <option value="Fresh Produce">Fresh Produce</option>
+                    <option value="Bakery">Bakery</option>
                   </select>
                 </div>
               </div>
               <div>
                 <label className="mb-2 block text-sm font-medium text-dark dark:text-white">Reference Price (₹)</label>
-                <input type="number" className="w-full rounded-lg border border-stroke bg-transparent p-3 text-dark outline-none focus:border-primary dark:border-stroke-dark dark:text-white" placeholder="0.00" />
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formPrice}
+                  onChange={(e) => setFormPrice(e.target.value)}
+                  className="w-full rounded-lg border border-stroke bg-transparent p-3 text-dark outline-none focus:border-primary dark:border-stroke-dark dark:text-white"
+                  placeholder="0.00"
+                />
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="rounded-lg px-4 py-2 text-sm font-semibold text-dark-4 hover:bg-gray-2 dark:text-dark-6 dark:hover:bg-dark-2"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  alert("Master SKU created!");
-                  setIsModalOpen(false);
-                }}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+                type="button"
+                disabled={submitting}
+                onClick={handleCreateSku}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
               >
-                Create SKU
+                {submitting ? "Creating..." : "Create SKU"}
               </button>
             </div>
           </div>

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { CheckIcon, CloseIcon, StarIcon } from "@/assets/icons";
 
 interface UnassignedOrder {
   id: string;
@@ -20,25 +22,57 @@ interface Partner {
   rating: string;
 }
 
-export default function UnassignedOrdersPage() {
-  const [orders, setOrders] = useState<UnassignedOrder[]>([
-    { id: "ORD-94820", shopName: "Urban Organic Mart", itemsCount: 4, amount: "₹28.00", waitTime: "25 mins" },
-    { id: "ORD-94818", shopName: "Green Grocery Fresh", itemsCount: 2, amount: "₹15.20", waitTime: "40 mins" },
-    { id: "ORD-94815", shopName: "Daily Needs Superstore", itemsCount: 7, amount: "₹64.00", waitTime: "12 mins" },
-  ]);
+const DEFAULT_UNASSIGNED: UnassignedOrder[] = [
+  { id: "ORD-94820", shopName: "Urban Organic Mart", itemsCount: 4, amount: "₹28.00", waitTime: "25 mins" },
+  { id: "ORD-94818", shopName: "Green Grocery Fresh", itemsCount: 2, amount: "₹15.20", waitTime: "40 mins" },
+  { id: "ORD-94815", shopName: "Daily Needs Superstore", itemsCount: 7, amount: "₹64.00", waitTime: "12 mins" },
+];
 
+export default function UnassignedOrdersPage() {
+  const [orders, setOrders] = useState<UnassignedOrder[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<UnassignedOrder | null>(null);
 
+  useEffect(() => {
+    fetchUnassigned();
+  }, []);
+
+  const fetchUnassigned = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/orders/unassigned");
+      let fetched: UnassignedOrder[] = [];
+      if (Array.isArray(res)) fetched = res;
+      else if (res && Array.isArray(res.data)) fetched = res.data;
+      else if (res && Array.isArray(res.results)) fetched = res.results;
+      setOrders(fetched.length > 0 ? fetched : DEFAULT_UNASSIGNED);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch unassigned orders:", err);
+      setOrders(DEFAULT_UNASSIGNED);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const partners: Partner[] = [
-    { id: "p1", name: "Rahul Sharma", phone: "+91 98111 22334", distance: "0.8 km", activeLoad: 1, rating: "4.9 ★" },
-    { id: "p2", name: "Vikram Singh", phone: "+91 98222 33445", distance: "1.4 km", activeLoad: 0, rating: "4.8 ★" },
-    { id: "p3", name: "Amit Patel", phone: "+91 98333 44556", distance: "2.1 km", activeLoad: 2, rating: "4.7 ★" },
+    { id: "p1", name: "Rahul Sharma", phone: "+91 98111 22334", distance: "0.8 km", activeLoad: 1, rating: "4.9" },
+    { id: "p2", name: "Vikram Singh", phone: "+91 98222 33445", distance: "1.4 km", activeLoad: 0, rating: "4.8" },
+    { id: "p3", name: "Amit Patel", phone: "+91 98333 44556", distance: "2.1 km", activeLoad: 2, rating: "4.7" },
   ];
 
-  const handleAssign = (partnerName: string) => {
+  const handleAssign = async (partnerName: string, partnerId?: string) => {
     if (!selectedOrder) return;
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/orders/${selectedOrder.id}/assign-driver`, {
+        method: "POST",
+        body: JSON.stringify({ driverName: partnerName, driverId: partnerId }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to assign driver:", err);
+    }
     setOrders((prev) => prev.filter((o) => o.id !== selectedOrder.id));
-    alert(`Assigned order ${selectedOrder.id} to partner ${partnerName}!`);
+    toast.success(`Assigned order ${selectedOrder.id} to partner ${partnerName}!`);
     setSelectedOrder(null);
   };
 
@@ -92,7 +126,10 @@ export default function UnassignedOrdersPage() {
               {orders.length === 0 && (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-sm text-emerald-500 font-bold">
-                    ✓ All orders have been assigned to delivery partners!
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <CheckIcon className="w-4 h-4 stroke-[2.5]" />
+                      All orders have been assigned to delivery partners!
+                    </span>
                   </td>
                 </tr>
               )}
@@ -113,7 +150,7 @@ export default function UnassignedOrdersPage() {
                 onClick={() => setSelectedOrder(null)}
                 className="text-dark-4 hover:text-dark dark:text-dark-6 dark:hover:text-white"
               >
-                ✕
+                <CloseIcon className="w-4 h-4" />
               </button>
             </div>
 
@@ -134,7 +171,10 @@ export default function UnassignedOrdersPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-amber-500">{p.rating}</span>
+                    <span className="text-xs font-bold text-amber-500 inline-flex items-center gap-1">
+                      <StarIcon className="w-3.5 h-3.5 fill-current" />
+                      {p.rating}
+                    </span>
                     <button
                       onClick={() => handleAssign(p.name)}
                       className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"

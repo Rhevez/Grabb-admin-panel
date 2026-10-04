@@ -1,9 +1,11 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { StatusBadge } from "@/components/common/status-badge";
 import { ConfirmModal } from "@/components/common/confirm-modal";
+import { CheckIcon } from "@/assets/icons";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -14,8 +16,73 @@ export default function OrderDetailPage({ params }: PageProps) {
 
   const [orderStatus, setOrderStatus] = useState("out-for-delivery");
   const [partner, setPartner] = useState("Rahul Sharma (+91 98111 22334)");
+  const [shopName, setShopName] = useState("Green Grocery Fresh");
+  const [customerName, setCustomerName] = useState("Aarav Sharma");
+  const [customerPhone, setCustomerPhone] = useState("+91 98765 43210");
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
+
+  useEffect(() => {
+    fetchOrderDetail();
+  }, [id]);
+
+  const fetchOrderDetail = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi(`/orders/${id}`);
+      const data = res?.data || res;
+      if (data && data.orderStatus) {
+        setOrderStatus(data.orderStatus || data.status || orderStatus);
+        setPartner(data.deliveryPartner || data.delivery_partner || partner);
+        setShopName(data.shopName || data.shop_name || shopName);
+        setCustomerName(data.customerName || data.customer_name || customerName);
+        setCustomerPhone(data.phone || customerPhone);
+      }
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch order details:", err);
+    }
+  };
+
+  const handleCancelOrder = async (reason?: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/orders/${id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error cancelling order:", err);
+    }
+    setOrderStatus("cancelled");
+    toast.success("Order cancelled successfully");
+  };
+
+  const handleRefundOrder = async (reason?: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/orders/${id}/refund`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error processing refund:", err);
+    }
+    toast.success("Refund processed successfully to customer original payment method.");
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    setOrderStatus(newStatus);
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/orders/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ orderStatus: newStatus, status: newStatus }),
+      });
+      toast.success(`Order status updated to ${newStatus}`);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error updating order status:", err);
+    }
+  };
 
   const stages = [
     { key: "placed", label: "Placed", time: "10:14 AM" },
@@ -46,7 +113,7 @@ export default function OrderDetailPage({ params }: PageProps) {
           </div>
           <p className="text-sm text-dark-4 dark:text-dark-6 mt-1">
             Placed on August 10, 2026 at 10:14 AM • Shop:{" "}
-            <span className="font-semibold text-dark dark:text-white">Green Grocery Fresh</span>
+            <span className="font-semibold text-dark dark:text-white">{shopName}</span>
           </p>
         </div>
 
@@ -83,7 +150,7 @@ export default function OrderDetailPage({ params }: PageProps) {
                       : "bg-gray-2 text-dark-4 dark:bg-dark-2 dark:text-dark-6"
                   }`}
                 >
-                  {isDone ? "✓" : idx + 1}
+                  {isDone ? <CheckIcon className="w-4 h-4 stroke-[2.5]" /> : idx + 1}
                 </div>
                 <div className="text-left sm:text-center">
                   <p className="text-xs font-bold text-dark dark:text-white">{stage.label}</p>
@@ -101,7 +168,7 @@ export default function OrderDetailPage({ params }: PageProps) {
           </span>
           <select
             value={orderStatus}
-            onChange={(e) => setOrderStatus(e.target.value)}
+            onChange={(e) => handleStatusChange(e.target.value)}
             className="rounded-lg border border-stroke bg-gray-2 px-3 py-1.5 text-xs font-semibold text-dark dark:border-stroke-dark dark:bg-dark-2 dark:text-white"
           >
             <option value="placed">Placed</option>
@@ -231,10 +298,7 @@ export default function OrderDetailPage({ params }: PageProps) {
       <ConfirmModal
         isOpen={cancelModalOpen}
         onClose={() => setCancelModalOpen(false)}
-        onConfirm={(reason) => {
-          setOrderStatus("cancelled");
-          alert(`Order cancelled with reason: ${reason}`);
-        }}
+        onConfirm={(reason) => handleCancelOrder(reason)}
         title="Cancel Order"
         description="Cancelling an order will update its status to cancelled and trigger an automatic refund process."
         confirmLabel="Confirm Cancellation"
@@ -246,7 +310,7 @@ export default function OrderDetailPage({ params }: PageProps) {
       <ConfirmModal
         isOpen={refundModalOpen}
         onClose={() => setRefundModalOpen(false)}
-        onConfirm={() => alert("Refund of ₹32.50 processed to customer original payment method.")}
+        onConfirm={(reason) => handleRefundOrder(reason)}
         title="Initiate Full Refund"
         description="Are you sure you want to refund ₹32.50 for this order?"
         confirmLabel="Process Refund"

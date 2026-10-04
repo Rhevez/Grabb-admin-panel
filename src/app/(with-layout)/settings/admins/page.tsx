@@ -130,7 +130,7 @@ export default function AdminsPage() {
                       actions={[
                         {
                           label: "Edit Admin",
-                          onClick: () => alert(`Editing admin: ${a.name}...`),
+                          onClick: () => toast.info(`Editing admin: ${a.name}...`),
                           variant: "primary",
                         },
                         {

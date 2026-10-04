@@ -29,12 +29,12 @@ export default function RootLayout({ children }: PropsWithChildren) {
           {children}
 
           <Toaster
-            position="bottom-right"
+            position="top-center"
             richColors
             closeButton
-            duration={5000}
+            duration={4000}
             toastOptions={{
-              className: "dark:bg-gray-dark dark:border-dark-3 dark:text-white",
+              className: "dark:bg-gray-dark dark:border-stroke-dark dark:text-white shadow-2xl rounded-2xl border font-medium text-sm py-3 px-4",
             }}
           />
         </Providers>

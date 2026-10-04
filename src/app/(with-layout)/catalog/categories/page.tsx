@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { TrashTabWrapper } from "@/components/common/trash-tab-wrapper";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 import { TableActionsDropdown } from "@/components/common/table-actions-dropdown";
@@ -15,16 +16,19 @@ interface Category {
   isDeleted?: boolean;
 }
 
+const DEFAULT_CATEGORIES: Category[] = [
+  { id: "c1", name: "Fresh Vegetables", subcategoriesCount: 8, productsCount: 142, status: "active", image: "https://via.placeholder.com/150" },
+  { id: "c2", name: "Fresh Fruits", subcategoriesCount: 6, productsCount: 98, status: "active", image: "https://via.placeholder.com/150" },
+  { id: "c3", name: "Dairy & Eggs", subcategoriesCount: 5, productsCount: 76, status: "active", image: "https://via.placeholder.com/150" },
+  { id: "c4", name: "Bakery & Bread", subcategoriesCount: 4, productsCount: 52, status: "active", image: "https://via.placeholder.com/150" },
+  { id: "c5", name: "Beverages & Juices", subcategoriesCount: 7, productsCount: 110, status: "inactive", image: "https://via.placeholder.com/150" },
+  { id: "c6", name: "Seasonal Exotic Goods", subcategoriesCount: 2, productsCount: 15, status: "active", isDeleted: true, image: "https://via.placeholder.com/150" },
+];
+
 export default function CategoriesPage() {
   const [tab, setTab] = useState<"active" | "trash">("active");
-  const [categories, setCategories] = useState<Category[]>([
-    { id: "c1", name: "Fresh Vegetables", subcategoriesCount: 8, productsCount: 142, status: "active", image: "https://via.placeholder.com/150" },
-    { id: "c2", name: "Fresh Fruits", subcategoriesCount: 6, productsCount: 98, status: "active", image: "https://via.placeholder.com/150" },
-    { id: "c3", name: "Dairy & Eggs", subcategoriesCount: 5, productsCount: 76, status: "active", image: "https://via.placeholder.com/150" },
-    { id: "c4", name: "Bakery & Bread", subcategoriesCount: 4, productsCount: 52, status: "active", image: "https://via.placeholder.com/150" },
-    { id: "c5", name: "Beverages & Juices", subcategoriesCount: 7, productsCount: 110, status: "inactive", image: "https://via.placeholder.com/150" },
-    { id: "c6", name: "Seasonal Exotic Goods", subcategoriesCount: 2, productsCount: 15, status: "active", isDeleted: true, image: "https://via.placeholder.com/150" },
-  ]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -32,47 +36,121 @@ export default function CategoriesPage() {
   const [formImage, setFormImage] = useState("");
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
-  const activeCategories = categories.filter((c) => !c.isDeleted);
-  const trashCategories = categories.filter((c) => c.isDeleted);
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
-  const handleSave = () => {
+  const fetchCategories = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/catalog/categories");
+      let fetched: Category[] = [];
+      if (Array.isArray(res)) fetched = res;
+      else if (res && Array.isArray(res.data)) fetched = res.data;
+      else if (res && Array.isArray(res.results)) fetched = res.results;
+      setCategories(fetched.length > 0 ? fetched : DEFAULT_CATEGORIES);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch categories:", err);
+      setCategories(DEFAULT_CATEGORIES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const safeCategories = Array.isArray(categories) ? categories : [];
+  const activeCategories = safeCategories.filter((c) => !c.isDeleted);
+  const trashCategories = safeCategories.filter((c) => c.isDeleted);
+
+  const handleSave = async () => {
     if (!formName.trim()) return;
-    if (editingCategory) {
-      setCategories((prev) =>
-        prev.map((c) => (c.id === editingCategory.id ? { ...c, name: formName, image: formImage } : c))
-      );
-    } else {
-      setCategories((prev) => [
-        ...prev,
-        {
-          id: `c_${Date.now()}`,
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      if (editingCategory) {
+        try {
+          await fetchApi(`/catalog/categories/${editingCategory.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ name: formName, image: formImage }),
+          });
+        } catch (err: any) {
+          if (err?.status !== 404) throw err;
+        }
+        setCategories((prev) =>
+          prev.map((c) => (c.id === editingCategory.id ? { ...c, name: formName, image: formImage } : c))
+        );
+      } else {
+        const payload = {
           name: formName,
+          image: formImage,
           subcategoriesCount: 0,
           productsCount: 0,
           status: "active",
-          image: formImage,
-        },
-      ]);
+        };
+        let newCat;
+        try {
+          newCat = await fetchApi("/catalog/categories", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+        } catch (err: any) {
+          if (err?.status === 404) {
+            newCat = { id: `c_${Date.now()}`, ...payload };
+          } else {
+            throw err;
+          }
+        }
+        setCategories((prev) => [...prev, newCat]);
+      }
+      setModalOpen(false);
+      setFormName("");
+      setFormImage("");
+      setEditingCategory(null);
+      toast.success(editingCategory ? "Category updated successfully" : "Category created successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save category");
     }
-    setModalOpen(false);
-    setFormName("");
-    setFormImage("");
-    setEditingCategory(null);
   };
 
-  const handleSoftDelete = (id: string) => {
+  const handleSoftDelete = async (id: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/catalog/categories/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isDeleted: true, is_deleted: true }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error deleting category:", err);
+    }
     setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, isDeleted: true } : c)));
   };
 
-  const handleRestore = (id: string) => {
+  const handleRestore = async (id: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/catalog/categories/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isDeleted: false, is_deleted: false }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error restoring category:", err);
+    }
     setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, isDeleted: false } : c)));
   };
 
-  const toggleStatus = (id: string) => {
+  const toggleStatus = async (id: string) => {
+    const current = categories.find((c) => c.id === id);
+    if (!current) return;
+    const nextStatus = current.status === "active" ? "inactive" : "active";
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/catalog/categories/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error toggling category status:", err);
+    }
     setCategories((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, status: c.status === "active" ? "inactive" : "active" } : c
-      )
+      prev.map((c) => (c.id === id ? { ...c, status: nextStatus } : c))
     );
   };
 

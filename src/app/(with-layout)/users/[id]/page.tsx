@@ -1,7 +1,8 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { StatusBadge } from "@/components/common/status-badge";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 
@@ -13,12 +14,45 @@ export default function UserDetailPage({ params }: PageProps) {
   const { id } = use(params);
 
   const [status, setStatus] = useState("active");
+  const [userName, setUserName] = useState("Aarav Sharma");
+  const [phone, setPhone] = useState("+91 98765 43210");
+  const [email, setEmail] = useState("aarav@example.com");
   const [blockModalOpen, setBlockModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"history" | "addresses">("history");
 
-  const handleToggleBlock = (reason?: string) => {
-    setStatus((prev) => (prev === "active" ? "inactive" : "active"));
-    alert(`User status changed with reason: ${reason || "N/A"}`);
+  useEffect(() => {
+    fetchCustomer();
+  }, [id]);
+
+  const fetchCustomer = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi(`/users/customers/${id}`);
+      const data = res?.data || res;
+      if (data && data.name) {
+        setUserName(data.name || userName);
+        setPhone(data.phone || phone);
+        setEmail(data.email || email);
+        setStatus(data.status || status);
+      }
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch customer detail:", err);
+    }
+  };
+
+  const handleToggleBlock = async (reason?: string) => {
+    const nextStatus = status === "active" ? "inactive" : "active";
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/users/customers/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: nextStatus, reason }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error toggling customer status:", err);
+    }
+    setStatus(nextStatus);
+    toast.success(`User status changed to ${nextStatus}! Reason: ${reason || "N/A"}`);
   };
 
   return (

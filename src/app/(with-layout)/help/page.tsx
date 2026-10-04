@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { RocketIcon, GlobeIcon, PackageIcon } from "@/assets/icons";
+import { ShoppingBagIcon } from "@/components/Layouts/sidebar/icons";
 
 export default function HelpPage() {
   return (
@@ -15,7 +17,10 @@ export default function HelpPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Getting Started */}
         <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
-          <h2 className="text-xl font-bold text-dark dark:text-white mb-4">🚀 Getting Started</h2>
+          <h2 className="text-xl font-bold text-dark dark:text-white mb-4 flex items-center gap-2">
+            <RocketIcon className="w-5 h-5 text-primary" />
+            Getting Started
+          </h2>
           <div className="space-y-4">
             <p className="text-sm text-dark-5 dark:text-dark-6">
               Grabb is a hyperlocal delivery platform connecting nearby stores with customers. As an administrator, you oversee catalog accuracy, delivery partner assignment, and shop management.
@@ -30,7 +35,10 @@ export default function HelpPage() {
 
         {/* Live Operations */}
         <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
-          <h2 className="text-xl font-bold text-dark dark:text-white mb-4">🌍 Live Operations</h2>
+          <h2 className="text-xl font-bold text-dark dark:text-white mb-4 flex items-center gap-2">
+            <GlobeIcon className="w-5 h-5 text-primary" />
+            Live Operations
+          </h2>
           <div className="space-y-4">
             <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
               <h3 className="font-semibold text-primary mb-1">Operational Zones</h3>
@@ -55,7 +63,10 @@ export default function HelpPage() {
 
         {/* Catalog & Products */}
         <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
-          <h2 className="text-xl font-bold text-dark dark:text-white mb-4">📦 Catalog Management</h2>
+          <h2 className="text-xl font-bold text-dark dark:text-white mb-4 flex items-center gap-2">
+            <PackageIcon className="w-5 h-5 text-primary" />
+            Catalog Management
+          </h2>
           <div className="space-y-4">
             <p className="text-sm text-dark-5 dark:text-dark-6">
               Our unique <b>Master Catalog</b> approach ensures consistency across all shops.
@@ -73,7 +84,10 @@ export default function HelpPage() {
 
         {/* Orders & Disputes */}
         <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
-          <h2 className="text-xl font-bold text-dark dark:text-white mb-4">🛒 Orders & Support</h2>
+          <h2 className="text-xl font-bold text-dark dark:text-white mb-4 flex items-center gap-2">
+            <ShoppingBagIcon className="w-5 h-5 text-primary" />
+            Orders & Support
+          </h2>
           <div className="space-y-4">
             <p className="text-sm text-dark-5 dark:text-dark-6">
               Manage the end-to-end lifecycle of customer orders.

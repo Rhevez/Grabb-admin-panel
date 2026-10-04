@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { FilterBar } from "@/components/common/filter-bar";
 import { TrashTabWrapper } from "@/components/common/trash-tab-wrapper";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 import { TableActionsDropdown } from "@/components/common/table-actions-dropdown";
+import { EmptyState } from "@/components/common/empty-state";
+import { downloadCSV } from "@/utils/download";
 
 interface Product {
   id: string;
@@ -19,70 +22,72 @@ interface Product {
   isDeleted?: boolean;
 }
 
+const DEFAULT_PRODUCTS: Product[] = [
+  {
+    id: "p1",
+    name: "Fresh Organic Milk 1L",
+    category: "Dairy & Eggs",
+    subcategory: "Cheese & Butter",
+    priceRange: "₹3.20 - ₹3.60",
+    stockStatus: "in-stock",
+    status: "active",
+    shopsCount: 3,
+    image: "https://via.placeholder.com/150",
+  },
+  {
+    id: "p2",
+    name: "Farm Fresh Eggs 12pk",
+    category: "Dairy & Eggs",
+    subcategory: "Cheese & Butter",
+    priceRange: "₹4.00 - ₹4.50",
+    stockStatus: "low",
+    status: "active",
+    shopsCount: 2,
+    image: "https://via.placeholder.com/150",
+  },
+  {
+    id: "p3",
+    name: "Avocado Hass (Pack of 2)",
+    category: "Fresh Fruits",
+    subcategory: "Citrus Fruits",
+    priceRange: "₹5.90",
+    stockStatus: "out",
+    status: "active",
+    shopsCount: 3,
+    image: "https://via.placeholder.com/150",
+  },
+  {
+    id: "p4",
+    name: "Organic Brown Bread 400g",
+    category: "Bakery & Bread",
+    subcategory: "Whole Grain",
+    priceRange: "₹2.80 - ₹3.10",
+    stockStatus: "in-stock",
+    status: "inactive",
+    shopsCount: 2,
+    image: "https://via.placeholder.com/150",
+  },
+  {
+    id: "p5",
+    name: "Discontinued Seasoning Mix",
+    category: "Spices",
+    subcategory: "Mixes",
+    priceRange: "₹1.50",
+    stockStatus: "out",
+    status: "inactive",
+    shopsCount: 1,
+    isDeleted: true,
+    image: "https://via.placeholder.com/150",
+  },
+];
+
 export default function ProductsPage() {
   const [tab, setTab] = useState<"active" | "trash">("active");
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedShop, setSelectedShop] = useState("all");
-
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: "p1",
-      name: "Fresh Organic Milk 1L",
-      category: "Dairy & Eggs",
-      subcategory: "Cheese & Butter",
-      priceRange: "₹3.20 - ₹3.60",
-      stockStatus: "in-stock",
-      status: "active",
-      shopsCount: 3,
-      image: "https://via.placeholder.com/150",
-    },
-    {
-      id: "p2",
-      name: "Farm Fresh Eggs 12pk",
-      category: "Dairy & Eggs",
-      subcategory: "Cheese & Butter",
-      priceRange: "₹4.00 - ₹4.50",
-      stockStatus: "low",
-      status: "active",
-      shopsCount: 2,
-      image: "https://via.placeholder.com/150",
-    },
-    {
-      id: "p3",
-      name: "Avocado Hass (Pack of 2)",
-      category: "Fresh Fruits",
-      subcategory: "Citrus Fruits",
-      priceRange: "₹5.90",
-      stockStatus: "out",
-      status: "active",
-      shopsCount: 3,
-      image: "https://via.placeholder.com/150",
-    },
-    {
-      id: "p4",
-      name: "Organic Brown Bread 400g",
-      category: "Bakery & Bread",
-      subcategory: "Whole Grain",
-      priceRange: "₹2.80 - ₹3.10",
-      stockStatus: "in-stock",
-      status: "inactive",
-      shopsCount: 2,
-      image: "https://via.placeholder.com/150",
-    },
-    {
-      id: "p5",
-      name: "Discontinued Seasoning Mix",
-      category: "Spices",
-      subcategory: "Mixes",
-      priceRange: "₹1.50",
-      stockStatus: "out",
-      status: "inactive",
-      shopsCount: 1,
-      isDeleted: true,
-      image: "https://via.placeholder.com/150",
-    },
-  ]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -92,19 +97,41 @@ export default function ProductsPage() {
   const [formSubcategory, setFormSubcategory] = useState("Cheese & Butter");
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
-  const filteredProducts = products.filter((p) => {
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/catalog/products");
+      let fetched: Product[] = [];
+      if (Array.isArray(res)) fetched = res;
+      else if (res && Array.isArray(res.data)) fetched = res.data;
+      else if (res && Array.isArray(res.results)) fetched = res.results;
+      setProducts(fetched.length > 0 ? fetched : DEFAULT_PRODUCTS);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch products:", err);
+      setProducts(DEFAULT_PRODUCTS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const safeProducts = Array.isArray(products) ? products : [];
+
+  const filteredProducts = safeProducts.filter((p) => {
     const matchesTab = tab === "trash" ? p.isDeleted : !p.isDeleted;
     const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = (p.name || "").toLowerCase().includes(search.toLowerCase());
     return matchesTab && matchesCategory && matchesSearch;
   });
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     if (!formName.trim()) return;
-    setProducts((prev) => [
-      ...prev,
-      {
-        id: `p_${Date.now()}`,
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const payload = {
         name: formName,
         category: formCategory,
         subcategory: formSubcategory,
@@ -113,18 +140,53 @@ export default function ProductsPage() {
         status: "active",
         shopsCount: 2,
         image: formImage,
-      },
-    ]);
-    setProductModalOpen(false);
-    setFormName("");
-    setFormImage("");
+      };
+      let newProduct;
+      try {
+        newProduct = await fetchApi("/catalog/products", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      } catch (err: any) {
+        if (err?.status === 404) {
+          newProduct = { id: `p_${Date.now()}`, ...payload };
+        } else {
+          throw err;
+        }
+      }
+      setProducts((prev) => [...prev, newProduct]);
+      setProductModalOpen(false);
+      setFormName("");
+      setFormImage("");
+      toast.success("Product created successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create product");
+    }
   };
 
-  const handleSoftDelete = (id: string) => {
+  const handleSoftDelete = async (id: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/catalog/products/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isDeleted: true, is_deleted: true }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error deleting product:", err);
+    }
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, isDeleted: true } : p)));
   };
 
-  const handleRestore = (id: string) => {
+  const handleRestore = async (id: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/catalog/products/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isDeleted: false, is_deleted: false }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error restoring product:", err);
+    }
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, isDeleted: false } : p)));
   };
 
@@ -164,7 +226,16 @@ export default function ProductsPage() {
         onSearchChange={setSearch}
         selectedShop={selectedShop}
         onShopChange={setSelectedShop}
-        onExport={() => alert(`Exporting catalog CSV...`)}
+        onExport={() => {
+          if (filteredProducts.length === 0) {
+            toast.error("No products to export");
+            return;
+          }
+          const headers = ["Product ID", "Product Name", "Category", "Subcategory", "Active Shops", "Price Range", "Stock Status", "Status"];
+          const rows = filteredProducts.map(p => [p.id, p.name, p.category, p.subcategory, p.shopsCount, p.priceRange, p.stockStatus.toUpperCase(), p.status.toUpperCase()]);
+          downloadCSV("products_catalog.csv", headers, rows);
+          toast.success(`Exported ${filteredProducts.length} catalog products as CSV!`);
+        }}
       />
 
       <TrashTabWrapper
@@ -174,6 +245,14 @@ export default function ProductsPage() {
         trashCount={products.filter((p) => p.isDeleted).length}
       >
         <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
+          {filteredProducts.length === 0 ? (
+            <EmptyState
+              variant="catalog"
+              title={tab === "trash" ? "Product Trash is Empty" : "No Products Found"}
+              description={tab === "trash" ? "There are no deleted catalog items in the trash." : (search || selectedShop !== "all" ? "No products match your active search or shop filter." : "There are currently no catalog products configured.")}
+              action={search || selectedShop !== "all" ? { label: "Reset Filters", onClick: () => { setSearch(""); setSelectedShop("all"); } } : undefined}
+            />
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-dark dark:text-white whitespace-nowrap">
               <thead className="bg-gray-2 text-xs font-semibold uppercase text-dark-4 dark:bg-dark-2 dark:text-dark-6">
@@ -266,6 +345,7 @@ export default function ProductsPage() {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </TrashTabWrapper>
 
@@ -281,14 +361,14 @@ export default function ProductsPage() {
               <p className="text-sm font-semibold text-dark dark:text-white">Drag & drop CSV file here</p>
               <p className="text-xs text-dark-4 dark:text-dark-6 mt-1">or click to browse from computer</p>
             </div>
-            <a href="#" onClick={(e) => { e.preventDefault(); alert("Downloading CSV Template..."); }} className="text-xs font-bold text-primary underline mb-4 block">
+            <a href="#" onClick={(e) => { e.preventDefault(); toast.info("Downloading CSV Template..."); }} className="text-xs font-bold text-primary underline mb-4 block">
               Download Sample CSV Template (.csv)
             </a>
             <div className="flex justify-end gap-3 mt-6">
               <button onClick={() => setBulkUploadOpen(false)} className="rounded-lg border border-stroke px-4 py-2 text-sm font-medium">
                 Cancel
               </button>
-              <button onClick={() => { alert("Products uploaded successfully!"); setBulkUploadOpen(false); }} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white">
+              <button onClick={() => { toast.success("Products uploaded successfully!"); setBulkUploadOpen(false); }} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white">
                 Upload & Process
               </button>
             </div>

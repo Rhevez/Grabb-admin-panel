@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/common/status-badge";
+import { StarIcon, BikeIcon, LocationPinIcon } from "@/assets/icons";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -82,7 +83,10 @@ export default function PartnerDetailPage({ params }: PageProps) {
               </div>
               <div className="flex justify-between py-2 border-b border-stroke dark:border-stroke-dark">
                 <span className="text-dark-4 dark:text-dark-6">Overall Rating:</span>
-                <span className="font-bold text-amber-500">4.9 ★ (140 reviews)</span>
+                <span className="font-bold text-amber-500 inline-flex items-center gap-1">
+                  <StarIcon className="w-3.5 h-3.5 fill-current" />
+                  4.9 (140 reviews)
+                </span>
               </div>
             </div>
           </div>
@@ -132,15 +136,20 @@ export default function PartnerDetailPage({ params }: PageProps) {
               </thead>
               <tbody className="divide-y divide-stroke dark:divide-stroke-dark">
                 {[
-                  { id: "ORD-94821", shop: "Green Grocery Fresh", time: "22 mins", rating: "5 ★" },
-                  { id: "ORD-94812", shop: "Urban Organic Mart", time: "19 mins", rating: "5 ★" },
-                  { id: "ORD-94800", shop: "Daily Needs Superstore", time: "28 mins", rating: "4 ★" },
+                  { id: "ORD-94821", shop: "Green Grocery Fresh", time: "22 mins", rating: "5" },
+                  { id: "ORD-94812", shop: "Urban Organic Mart", time: "19 mins", rating: "5" },
+                  { id: "ORD-94800", shop: "Daily Needs Superstore", time: "28 mins", rating: "4" },
                 ].map((row, i) => (
                   <tr key={i} className="hover:bg-gray-2 dark:hover:bg-dark-2">
                     <td className="p-3 font-bold text-primary">{row.id}</td>
                     <td className="p-3">{row.shop}</td>
                     <td className="p-3 font-medium text-emerald-500">{row.time}</td>
-                    <td className="p-3 font-bold text-amber-500">{row.rating}</td>
+                    <td className="p-3 font-bold text-amber-500">
+                      <span className="inline-flex items-center gap-1">
+                        <StarIcon className="w-3.5 h-3.5 fill-current" />
+                        {row.rating}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -169,7 +178,10 @@ export default function PartnerDetailPage({ params }: PageProps) {
         <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
           <h3 className="text-base font-bold text-dark dark:text-white mb-4">Live GPS Position</h3>
           <div className="h-80 bg-gray-2 dark:bg-dark-2 rounded-xl flex flex-col items-center justify-center border border-dashed border-stroke dark:border-stroke-dark text-dark-4 dark:text-dark-6">
-            <span className="text-3xl mb-2">🛵 📍</span>
+            <div className="flex items-center gap-2 text-primary mb-2">
+              <BikeIcon className="w-8 h-8 text-primary" />
+              <LocationPinIcon className="w-6 h-6 text-rose-500" />
+            </div>
             <p className="text-sm font-bold text-dark dark:text-white">Rahul Sharma (Online & Moving)</p>
             <p className="text-xs">Current Speed: 24 km/h • Heading towards Sector 18</p>
           </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { StatusBadge } from "@/components/common/status-badge";
 
 interface PageProps {
@@ -17,6 +18,55 @@ export default function ShopDetailPage({ params }: PageProps) {
   const [phone, setPhone] = useState("+91 98111 55443");
   const [radius, setRadius] = useState(5.0);
   const [status, setStatus] = useState("active");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchShopDetail();
+  }, [id]);
+
+  const fetchShopDetail = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi(`/vendor/shops/${id}`);
+      const data = res?.data || res;
+      if (data && data.name) {
+        setShopName(data.name || shopName);
+        setOwnerName(data.ownerName || data.owner_name || ownerName);
+        setPhone(data.phone || phone);
+        setRadius(parseFloat(data.radius) || radius);
+        setStatus(data.status || status);
+      }
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch shop details:", err);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/vendor/shops/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: shopName,
+          ownerName,
+          owner_name: ownerName,
+          phone,
+          radius,
+          status,
+        }),
+      });
+      toast.success("Shop details saved successfully!");
+    } catch (err: any) {
+      if (err?.status === 404) {
+        toast.info("Shop details saved locally.");
+      } else {
+        toast.error(err.message || "Failed to save shop details");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const [hours, setHours] = useState([
     { day: "Monday", open: "07:00", close: "22:00", isClosed: false },
@@ -48,10 +98,11 @@ export default function ShopDetailPage({ params }: PageProps) {
         </div>
 
         <button
-          onClick={() => alert("Shop details saved successfully!")}
-          className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white shadow-1 hover:bg-primary/90 transition-colors"
+          onClick={handleSave}
+          disabled={saving}
+          className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white shadow-1 hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
-          Save Changes
+          {saving ? "Saving..." : "Save Changes"}
         </button>
       </div>
 

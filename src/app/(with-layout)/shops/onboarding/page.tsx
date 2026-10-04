@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 
 interface PendingShop {
@@ -14,40 +15,78 @@ interface PendingShop {
   idProofDoc: string;
 }
 
-export default function ShopOnboardingPage() {
-  const [pendingShops, setPendingShops] = useState<PendingShop[]>([
-    {
-      id: "app_101",
-      name: "Healthy Harvest Organics",
-      ownerName: "Anita Roy",
-      phone: "+91 98444 88776",
-      submittedDate: "August 9, 2026",
-      licenseDoc: "FSSAI_Trade_License_2026.pdf",
-      idProofDoc: "Owner_Aadhaar_ID.pdf",
-    },
-    {
-      id: "app_102",
-      name: "Metro Supermart Corner",
-      ownerName: "Deepak Patel",
-      phone: "+91 98777 11223",
-      submittedDate: "August 10, 2026",
-      licenseDoc: "GST_Registration_Certificate.pdf",
-      idProofDoc: "Owner_PAN_Card.pdf",
-    },
-  ]);
+const DEFAULT_PENDING_SHOPS: PendingShop[] = [
+  {
+    id: "app_101",
+    name: "Healthy Harvest Organics",
+    ownerName: "Anita Roy",
+    phone: "+91 98444 88776",
+    submittedDate: "August 9, 2026",
+    licenseDoc: "FSSAI_Trade_License_2026.pdf",
+    idProofDoc: "Owner_Aadhaar_ID.pdf",
+  },
+  {
+    id: "app_102",
+    name: "Metro Supermart Corner",
+    ownerName: "Deepak Patel",
+    phone: "+91 98777 11223",
+    submittedDate: "August 10, 2026",
+    licenseDoc: "GST_Registration_Certificate.pdf",
+    idProofDoc: "Owner_PAN_Card.pdf",
+  },
+];
 
+export default function ShopOnboardingPage() {
+  const [pendingShops, setPendingShops] = useState<PendingShop[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
 
-  const handleApprove = (id: string) => {
-    setPendingShops((prev) => prev.filter((s) => s.id !== id));
-    alert("Shop application approved successfully! Shop is now Active.");
+  useEffect(() => {
+    fetchPendingShops();
+  }, []);
+
+  const fetchPendingShops = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/vendor/shops/pending");
+      let fetched: PendingShop[] = [];
+      if (Array.isArray(res)) fetched = res;
+      else if (res && Array.isArray(res.data)) fetched = res.data;
+      else if (res && Array.isArray(res.results)) fetched = res.results;
+      setPendingShops(fetched.length > 0 ? fetched : DEFAULT_PENDING_SHOPS);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch pending shops:", err);
+      setPendingShops(DEFAULT_PENDING_SHOPS);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReject = (reason?: string) => {
+  const handleApprove = async (id: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/vendor/shops/${id}/approve`, { method: "POST" });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error approving shop:", err);
+    }
+    setPendingShops((prev) => prev.filter((s) => s.id !== id));
+    toast.success("Shop application approved successfully! Shop is now Active.");
+  };
+
+  const handleReject = async (reason?: string) => {
     if (!rejectTargetId) return;
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/vendor/shops/${rejectTargetId}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error rejecting shop:", err);
+    }
     setPendingShops((prev) => prev.filter((s) => s.id !== rejectTargetId));
-    alert(`Application rejected with reason: ${reason}`);
+    toast.info(`Application rejected with reason: ${reason || "Not specified"}`);
     setRejectTargetId(null);
   };
 

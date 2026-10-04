@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/common/status-badge";
 
@@ -27,20 +27,61 @@ export default function TicketDetailPage({ params }: PageProps) {
 
   const [replyText, setReplyText] = useState("");
 
-  const handleSendReply = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!replyText.trim()) return;
-    setChatMessages((prev) => [
-      ...prev,
-      { sender: "agent", text: replyText, time: "Just now" },
-    ]);
-    setReplyText("");
+  useEffect(() => {
+    fetchTicketDetail();
+  }, [id]);
+
+  const fetchTicketDetail = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi(`/support/tickets/${id}`);
+      const data = res?.data || res;
+      if (data) {
+        if (data.status) setStatus(data.status);
+        if (data.priority) setPriority(data.priority);
+        if (data.assignedAgent) setAgent(data.assignedAgent);
+        if (Array.isArray(data.messages)) setChatMessages(data.messages);
+        if (Array.isArray(data.notes)) setNotesList(data.notes);
+      }
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch ticket detail:", err);
+    }
   };
 
-  const handleAddNote = () => {
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyText.trim()) return;
+    const msg = replyText;
+    setReplyText("");
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/support/tickets/${id}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ message: msg, sender: "agent" }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to send reply:", err);
+    }
+    setChatMessages((prev) => [
+      ...prev,
+      { sender: "agent", text: msg, time: "Just now" },
+    ]);
+  };
+
+  const handleAddNote = async () => {
     if (!internalNote.trim()) return;
-    setNotesList((prev) => [...prev, internalNote]);
+    const note = internalNote;
     setInternalNote("");
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/support/tickets/${id}/notes`, {
+        method: "POST",
+        body: JSON.stringify({ note }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to add note:", err);
+    }
+    setNotesList((prev) => [...prev, note]);
   };
 
   return (

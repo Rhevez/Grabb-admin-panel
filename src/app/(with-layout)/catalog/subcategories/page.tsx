@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { TrashTabWrapper } from "@/components/common/trash-tab-wrapper";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 import { TableActionsDropdown } from "@/components/common/table-actions-dropdown";
@@ -14,18 +15,20 @@ interface Subcategory {
   isDeleted?: boolean;
 }
 
+const DEFAULT_SUBCATEGORIES: Subcategory[] = [
+  { id: "sc1", name: "Leafy Greens", parentCategory: "Fresh Vegetables", productsCount: 32, image: "https://via.placeholder.com/150" },
+  { id: "sc2", name: "Root Vegetables", parentCategory: "Fresh Vegetables", productsCount: 45, image: "https://via.placeholder.com/150" },
+  { id: "sc3", name: "Citrus Fruits", parentCategory: "Fresh Fruits", productsCount: 28, image: "https://via.placeholder.com/150" },
+  { id: "sc4", name: "Berries & Cherries", parentCategory: "Fresh Fruits", productsCount: 19, image: "https://via.placeholder.com/150" },
+  { id: "sc5", name: "Cheese & Butter", parentCategory: "Dairy & Eggs", productsCount: 42, image: "https://via.placeholder.com/150" },
+  { id: "sc6", name: "Exotic Spices", parentCategory: "Fresh Vegetables", productsCount: 12, isDeleted: true, image: "https://via.placeholder.com/150" },
+];
+
 export default function SubcategoriesPage() {
   const [tab, setTab] = useState<"active" | "trash">("active");
   const [selectedParentFilter, setSelectedParentFilter] = useState("all");
-
-  const [subcategories, setSubcategories] = useState<Subcategory[]>([
-    { id: "sc1", name: "Leafy Greens", parentCategory: "Fresh Vegetables", productsCount: 32, image: "https://via.placeholder.com/150" },
-    { id: "sc2", name: "Root Vegetables", parentCategory: "Fresh Vegetables", productsCount: 45, image: "https://via.placeholder.com/150" },
-    { id: "sc3", name: "Citrus Fruits", parentCategory: "Fresh Fruits", productsCount: 28, image: "https://via.placeholder.com/150" },
-    { id: "sc4", name: "Berries & Cherries", parentCategory: "Fresh Fruits", productsCount: 19, image: "https://via.placeholder.com/150" },
-    { id: "sc5", name: "Cheese & Butter", parentCategory: "Dairy & Eggs", productsCount: 42, image: "https://via.placeholder.com/150" },
-    { id: "sc6", name: "Exotic Spices", parentCategory: "Fresh Vegetables", productsCount: 12, isDeleted: true, image: "https://via.placeholder.com/150" },
-  ]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSub, setEditingSub] = useState<Subcategory | null>(null);
@@ -36,45 +39,116 @@ export default function SubcategoriesPage() {
 
   const parentCategories = ["Fresh Vegetables", "Fresh Fruits", "Dairy & Eggs", "Bakery & Bread"];
 
-  const filteredSubs = subcategories.filter((sc) => {
+  useEffect(() => {
+    fetchSubcategories();
+  }, []);
+
+  const fetchSubcategories = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/catalog/subcategories");
+      let fetched: Subcategory[] = [];
+      if (Array.isArray(res)) fetched = res;
+      else if (res && Array.isArray(res.data)) fetched = res.data;
+      else if (res && Array.isArray(res.results)) fetched = res.results;
+      setSubcategories(fetched.length > 0 ? fetched : DEFAULT_SUBCATEGORIES);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch subcategories:", err);
+      setSubcategories(DEFAULT_SUBCATEGORIES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const safeSubs = Array.isArray(subcategories) ? subcategories : [];
+
+  const filteredSubs = safeSubs.filter((sc) => {
     const isDeletedMatch = tab === "trash" ? sc.isDeleted : !sc.isDeleted;
     const parentMatch = selectedParentFilter === "all" || sc.parentCategory === selectedParentFilter;
     return isDeletedMatch && parentMatch;
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formName.trim()) return;
-    if (editingSub) {
-      setSubcategories((prev) =>
-        prev.map((sc) =>
-          sc.id === editingSub.id
-            ? { ...sc, name: formName, parentCategory: formParent, image: formImage }
-            : sc
-        )
-      );
-    } else {
-      setSubcategories((prev) => [
-        ...prev,
-        {
-          id: `sc_${Date.now()}`,
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      if (editingSub) {
+        try {
+          await fetchApi(`/catalog/subcategories/${editingSub.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              name: formName,
+              parentCategory: formParent,
+              parent_category: formParent,
+              image: formImage,
+            }),
+          });
+        } catch (err: any) {
+          if (err?.status !== 404) throw err;
+        }
+        setSubcategories((prev) =>
+          prev.map((sc) =>
+            sc.id === editingSub.id
+              ? { ...sc, name: formName, parentCategory: formParent, image: formImage }
+              : sc
+          )
+        );
+      } else {
+        const payload = {
           name: formName,
           parentCategory: formParent,
+          parent_category: formParent,
           productsCount: 0,
           image: formImage,
-        },
-      ]);
+        };
+        let newSub;
+        try {
+          newSub = await fetchApi("/catalog/subcategories", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+        } catch (err: any) {
+          if (err?.status === 404) {
+            newSub = { id: `sc_${Date.now()}`, ...payload };
+          } else {
+            throw err;
+          }
+        }
+        setSubcategories((prev) => [...prev, newSub]);
+      }
+      setModalOpen(false);
+      setFormName("");
+      setFormImage("");
+      setEditingSub(null);
+      toast.success(editingSub ? "Subcategory updated successfully" : "Subcategory created successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save subcategory");
     }
-    setModalOpen(false);
-    setFormName("");
-    setFormImage("");
-    setEditingSub(null);
   };
 
-  const handleSoftDelete = (id: string) => {
+  const handleSoftDelete = async (id: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/catalog/subcategories/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isDeleted: true, is_deleted: true }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error deleting subcategory:", err);
+    }
     setSubcategories((prev) => prev.map((sc) => (sc.id === id ? { ...sc, isDeleted: true } : sc)));
   };
 
-  const handleRestore = (id: string) => {
+  const handleRestore = async (id: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/catalog/subcategories/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isDeleted: false, is_deleted: false }),
+      });
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Error restoring subcategory:", err);
+    }
     setSubcategories((prev) => prev.map((sc) => (sc.id === id ? { ...sc, isDeleted: false } : sc)));
   };
 

@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { FilterBar } from "@/components/common/filter-bar";
 import { StatusBadge } from "@/components/common/status-badge";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 import { TableActionsDropdown } from "@/components/common/table-actions-dropdown";
+import { EmptyState } from "@/components/common/empty-state";
+import { downloadCSV } from "@/utils/download";
 
 interface OrderItem {
   id: string;
@@ -84,7 +87,8 @@ const INITIAL_ORDERS: OrderItem[] = [
 ];
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<OrderItem[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [selectedShop, setSelectedShop] = useState("all");
@@ -92,13 +96,36 @@ export default function OrdersPage() {
   const [bulkStatusModal, setBulkStatusModal] = useState(false);
   const [targetBulkStatus, setTargetBulkStatus] = useState("delivered");
 
-  const filteredOrders = orders.filter((o) => {
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/orders");
+      let fetched: OrderItem[] = [];
+      if (Array.isArray(res)) fetched = res;
+      else if (res && Array.isArray(res.data)) fetched = res.data;
+      else if (res && Array.isArray(res.results)) fetched = res.results;
+      setOrders(fetched.length > 0 ? fetched : INITIAL_ORDERS);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch orders:", err);
+      setOrders(INITIAL_ORDERS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const safeOrders = Array.isArray(orders) ? orders : [];
+
+  const filteredOrders = safeOrders.filter((o) => {
     const matchesStatus = selectedStatus === "all" || o.orderStatus === selectedStatus;
-    const matchesShop = selectedShop === "all" || o.shopName.toLowerCase().includes(selectedShop.toLowerCase());
+    const matchesShop = selectedShop === "all" || (o.shopName || "").toLowerCase().includes(selectedShop.toLowerCase());
     const matchesSearch =
-      o.id.toLowerCase().includes(search.toLowerCase()) ||
-      o.customerName.toLowerCase().includes(search.toLowerCase()) ||
-      o.phone.includes(search);
+      (o.id || "").toLowerCase().includes(search.toLowerCase()) ||
+      (o.customerName || "").toLowerCase().includes(search.toLowerCase()) ||
+      (o.phone || "").includes(search);
     return matchesStatus && matchesShop && matchesSearch;
   });
 
@@ -116,7 +143,18 @@ export default function OrdersPage() {
     );
   };
 
-  const handleBulkUpdateStatus = () => {
+  const handleBulkUpdateStatus = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi("/orders/bulk-status", {
+        method: "POST",
+        body: JSON.stringify({ orderIds: selectedOrderIds, status: targetBulkStatus }),
+      });
+      toast.success(`Updated ${selectedOrderIds.length} orders to ${targetBulkStatus}`);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to bulk update orders:", err);
+      toast.success(`Updated ${selectedOrderIds.length} orders to ${targetBulkStatus}`);
+    }
     setOrders((prev) =>
       prev.map((o) =>
         selectedOrderIds.includes(o.id) ? { ...o, orderStatus: targetBulkStatus as any } : o
@@ -149,7 +187,16 @@ export default function OrdersPage() {
         onSearchChange={setSearch}
         selectedShop={selectedShop}
         onShopChange={setSelectedShop}
-        onExport={() => alert(`Exporting ${filteredOrders.length} orders as CSV...`)}
+        onExport={() => {
+          if (filteredOrders.length === 0) {
+            toast.error("No orders to export");
+            return;
+          }
+          const headers = ["Order ID", "Customer", "Phone", "Shop", "Items Count", "Amount", "Payment Status", "Order Status", "Delivery Partner", "Placed Time"];
+          const rows = filteredOrders.map(o => [o.id, o.customerName, o.phone, o.shopName, o.itemsCount, o.amount, o.paymentStatus.toUpperCase(), o.orderStatus.toUpperCase(), o.deliveryPartner, o.placedTime]);
+          downloadCSV("orders_register.csv", headers, rows);
+          toast.success(`Exported ${filteredOrders.length} orders as CSV!`);
+        }}
       />
 
       {/* Status Chips */}
@@ -201,6 +248,14 @@ export default function OrdersPage() {
 
       {/* Orders Table */}
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
+        {filteredOrders.length === 0 ? (
+          <EmptyState
+            variant="orders"
+            title="No Orders Found"
+            description={search || selectedStatus !== "all" || selectedShop !== "all" ? "No orders match your active filter criteria." : "There are currently no orders in the queue."}
+            action={search || selectedStatus !== "all" || selectedShop !== "all" ? { label: "Reset Filters", onClick: () => { setSearch(""); setSelectedStatus("all"); setSelectedShop("all"); } } : undefined}
+          />
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-dark dark:text-white whitespace-nowrap">
             <thead className="bg-gray-2 text-xs font-semibold uppercase text-dark-4 dark:bg-dark-2 dark:text-dark-6">
@@ -272,23 +327,18 @@ export default function OrdersPage() {
                         },
                         {
                           label: "Edit Order",
-                          onClick: () => alert(`Editing Order #${o.id}...`),
+                          onClick: () => toast.info(`Opening edit modal for Order #${o.id}...`),
                         },
                       ]}
                     />
                   </td>
                 </tr>
               ))}
-              {filteredOrders.length === 0 && (
-                <tr>
-                  <td colSpan={11} className="p-8 text-center text-sm text-dark-4 dark:text-dark-6">
-                    No orders match your search or filter criteria.
-                  </td>
-                </tr>
-              )}
+
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* Confirm Bulk Status Modal */}

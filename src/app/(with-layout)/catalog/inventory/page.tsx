@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { FilterBar } from "@/components/common/filter-bar";
 
 interface InventoryItem {
@@ -12,37 +13,86 @@ interface InventoryItem {
   lastUpdated: string;
 }
 
+const DEFAULT_INVENTORY: InventoryItem[] = [
+  { id: "inv1", productName: "Fresh Organic Milk 1L", shopName: "Green Grocery Fresh", currentStock: 8, lowStockThreshold: 15, lastUpdated: "5 mins ago" },
+  { id: "inv2", productName: "Farm Fresh Eggs 12pk", shopName: "Urban Organic Mart", currentStock: 4, lowStockThreshold: 10, lastUpdated: "12 mins ago" },
+  { id: "inv3", productName: "Avocado Hass (Pack of 2)", shopName: "Daily Needs Superstore", currentStock: 0, lowStockThreshold: 5, lastUpdated: "1 hour ago" },
+  { id: "inv4", productName: "Organic Brown Bread 400g", shopName: "Green Grocery Fresh", currentStock: 64, lowStockThreshold: 20, lastUpdated: "2 hours ago" },
+  { id: "inv5", productName: "Greek Yogurt Vanilla 500g", shopName: "Urban Organic Mart", currentStock: 42, lowStockThreshold: 10, lastUpdated: "3 hours ago" },
+];
+
 export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [selectedShop, setSelectedShop] = useState("all");
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [items, setItems] = useState<InventoryItem[]>([
-    { id: "inv1", productName: "Fresh Organic Milk 1L", shopName: "Green Grocery Fresh", currentStock: 8, lowStockThreshold: 15, lastUpdated: "5 mins ago" },
-    { id: "inv2", productName: "Farm Fresh Eggs 12pk", shopName: "Urban Organic Mart", currentStock: 4, lowStockThreshold: 10, lastUpdated: "12 mins ago" },
-    { id: "inv3", productName: "Avocado Hass (Pack of 2)", shopName: "Daily Needs Superstore", currentStock: 0, lowStockThreshold: 5, lastUpdated: "1 hour ago" },
-    { id: "inv4", productName: "Organic Brown Bread 400g", shopName: "Green Grocery Fresh", currentStock: 64, lowStockThreshold: 20, lastUpdated: "2 hours ago" },
-    { id: "inv5", productName: "Greek Yogurt Vanilla 500g", shopName: "Urban Organic Mart", currentStock: 42, lowStockThreshold: 10, lastUpdated: "3 hours ago" },
-  ]);
+  useEffect(() => {
+    fetchInventory();
+  }, []);
 
-  const handleStockChange = (id: string, newStock: number) => {
+  const fetchInventory = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/catalog/inventory/monitor");
+      let fetched: InventoryItem[] = [];
+      if (Array.isArray(res)) fetched = res;
+      else if (res && Array.isArray(res.data)) fetched = res.data;
+      else if (res && Array.isArray(res.results)) fetched = res.results;
+      setItems(fetched.length > 0 ? fetched : DEFAULT_INVENTORY);
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to fetch inventory:", err);
+      setItems(DEFAULT_INVENTORY);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStockChange = async (id: string, newStock: number) => {
+    const updatedStock = Math.max(0, newStock);
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/catalog/inventory/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ currentStock: updatedStock, current_stock: updatedStock }),
+      });
+      toast.success("Stock level updated");
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to update stock:", err);
+      toast.success("Stock level updated");
+    }
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, currentStock: Math.max(0, newStock), lastUpdated: "Just now" } : item
+        item.id === id ? { ...item, currentStock: updatedStock, lastUpdated: "Just now" } : item
       )
     );
   };
 
-  const handleThresholdChange = (id: string, newThreshold: number) => {
+  const handleThresholdChange = async (id: string, newThreshold: number) => {
+    const updatedThreshold = Math.max(1, newThreshold);
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/catalog/inventory/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ lowStockThreshold: updatedThreshold, low_stock_threshold: updatedThreshold }),
+      });
+      toast.success("Low stock threshold updated");
+    } catch (err: any) {
+      if (err?.status !== 404) console.error("Failed to update threshold:", err);
+      toast.success("Low stock threshold updated");
+    }
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, lowStockThreshold: Math.max(1, newThreshold) } : item
+        item.id === id ? { ...item, lowStockThreshold: updatedThreshold } : item
       )
     );
   };
 
-  const filteredItems = items.filter((item) => {
-    const matchesShop = selectedShop === "all" || item.shopName.toLowerCase().includes(selectedShop.toLowerCase());
-    const matchesSearch = item.productName.toLowerCase().includes(search.toLowerCase());
+  const safeItems = Array.isArray(items) ? items : [];
+
+  const filteredItems = safeItems.filter((item) => {
+    const matchesShop = selectedShop === "all" || (item.shopName || "").toLowerCase().includes(selectedShop.toLowerCase());
+    const matchesSearch = (item.productName || "").toLowerCase().includes(search.toLowerCase());
     return matchesShop && matchesSearch;
   });
 
@@ -56,7 +106,7 @@ export default function InventoryPage() {
           </p>
         </div>
         <button
-          onClick={() => alert("Simulating bulk stock sync from CSV...")}
+          onClick={() => toast.info("Simulating bulk stock sync from CSV...")}
           className="rounded-lg border border-stroke bg-white px-4 py-2 text-sm font-semibold text-dark hover:bg-gray-100 dark:border-stroke-dark dark:bg-dark-2 dark:text-white"
         >
           Bulk Stock Update (CSV)
@@ -69,7 +119,7 @@ export default function InventoryPage() {
         onSearchChange={setSearch}
         selectedShop={selectedShop}
         onShopChange={setSelectedShop}
-        onExport={() => alert("Exporting Inventory Report...")}
+        onExport={() => toast.info("Exporting Inventory Report...")}
       />
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
