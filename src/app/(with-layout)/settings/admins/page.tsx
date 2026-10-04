@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { TableActionsDropdown } from "@/components/common/table-actions-dropdown";
 import { fetchApi } from "@/utils/api";
 import { toast } from "sonner";
+import { CheckIcon, XIcon } from "@/assets/icons";
 
 interface AdminUser {
   id: string;
@@ -176,8 +177,8 @@ export default function AdminsPage() {
 
                     return (
                       <td key={r} className="p-3 text-center">
-                        <span className={`text-base ${hasAccess ? "text-emerald-500" : "text-gray-300 dark:text-gray-700"}`}>
-                          {hasAccess ? "✓" : "✕"}
+                        <span className={`inline-flex items-center justify-center ${hasAccess ? "text-emerald-500" : "text-gray-300 dark:text-gray-700"}`}>
+                          {hasAccess ? <CheckIcon className="w-3.5 h-3.5 stroke-[2.5]" /> : <XIcon className="w-3 h-3" />}
                         </span>
                       </td>
                     );

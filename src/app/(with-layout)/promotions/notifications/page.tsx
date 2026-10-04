@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { SendIcon } from "@/assets/icons";
 
 interface PushHistory {
   id: string;
@@ -20,7 +21,7 @@ export default function PushNotificationsPage() {
   const [sentHistory, setSentHistory] = useState<PushHistory[]>([
     {
       id: "pn1",
-      title: "⚡ Flash Sale on Fresh Produce!",
+      title: "Flash Sale on Fresh Produce!",
       body: "Get up to 30% off organic spinach, tomatoes, and berries for the next 3 hours.",
       audience: "All Active Users",
       sentDate: "Today at 09:00 AM",
@@ -28,7 +29,7 @@ export default function PushNotificationsPage() {
     },
     {
       id: "pn2",
-      title: "We miss you! Free delivery inside 🛵",
+      title: "We miss you! Free delivery inside",
       body: "Order today and get free express delivery on orders over ₹15.",
       audience: "Inactive for 30+ days",
       sentDate: "August 08, 2026",
@@ -91,7 +92,7 @@ export default function PushNotificationsPage() {
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. 🥦 Fresh Vegetables Arrived!"
+                placeholder="e.g. Fresh Vegetables Arrived!"
                 className="w-full rounded-lg border border-stroke bg-gray-2 p-2.5 text-sm dark:border-stroke-dark dark:bg-dark-2 dark:text-white"
               />
             </div>
@@ -110,9 +111,10 @@ export default function PushNotificationsPage() {
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-white shadow-1 hover:bg-primary/90 transition-colors"
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-white shadow-1 hover:bg-primary/90 transition-colors inline-flex items-center justify-center gap-2"
             >
-              Send Push Notification Now 🚀
+              <SendIcon className="w-4 h-4" />
+              <span>Send Push Notification Now</span>
             </button>
           </form>
         </div>
@@ -124,7 +126,10 @@ export default function PushNotificationsPage() {
             <p className="text-[10px] text-center text-gray-400 mb-4">iOS / Android Lock Screen Preview</p>
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 space-y-1">
               <div className="flex items-center justify-between text-[11px] text-gray-300">
-                <span className="font-bold flex items-center gap-1">🟢 Grabb Grocery</span>
+                <span className="font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                  Grabb Grocery
+                </span>
                 <span>Now</span>
               </div>
               <p className="text-xs font-bold">{title || "Notification Title Preview"}</p>

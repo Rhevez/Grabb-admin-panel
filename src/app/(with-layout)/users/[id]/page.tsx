@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/common/status-badge";
 import { ConfirmModal } from "@/components/common/confirm-modal";
+import { LocationPinIcon } from "@/assets/icons";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -172,7 +173,10 @@ export default function UserDetailPage({ params }: PageProps) {
                 { title: "Work Office Address", text: "Building 10B, 5th Floor, DLF Cyber City, Phase 2, Gurugram, HR - 122002" },
               ].map((addr, idx) => (
                 <div key={idx} className="rounded-2xl bg-white p-5 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
-                  <p className="text-sm font-bold text-dark dark:text-white mb-1">📍 {addr.title}</p>
+                  <p className="text-sm font-bold text-dark dark:text-white mb-1 inline-flex items-center gap-1.5">
+                    <LocationPinIcon className="w-4 h-4 text-primary" />
+                    {addr.title}
+                  </p>
                   <p className="text-xs text-dark-4 dark:text-dark-6 leading-relaxed">{addr.text}</p>
                 </div>
               ))}

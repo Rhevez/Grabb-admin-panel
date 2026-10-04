@@ -4,6 +4,7 @@ import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/common/status-badge";
+import { LocationPinIcon } from "@/assets/icons";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -213,7 +214,7 @@ export default function ShopDetailPage({ params }: PageProps) {
 
           {/* Map Pin Placeholder */}
           <div className="h-56 bg-gray-2 dark:bg-dark-2 rounded-xl flex flex-col items-center justify-center border border-dashed border-stroke dark:border-stroke-dark text-dark-4 dark:text-dark-6">
-            <span className="text-2xl mb-1">📍</span>
+            <LocationPinIcon className="w-8 h-8 text-rose-500 mb-1" />
             <p className="text-xs font-bold text-dark dark:text-white">Interactive Map Pin Selector</p>
             <p className="text-[11px]">Latitude: 28.4595° N, Longitude: 77.0266° E</p>
           </div>

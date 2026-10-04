@@ -3,6 +3,7 @@
 import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/common/status-badge";
+import { LockIcon } from "@/assets/icons";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -152,7 +153,8 @@ export default function TicketDetailPage({ params }: PageProps) {
           {/* Internal Notes Section (Hidden from Customer) */}
           <div className="rounded-2xl bg-amber-500/10 p-6 border border-amber-500/30 space-y-4">
             <h3 className="text-sm font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-2">
-              🔒 Internal Staff Notes (Not visible to customer)
+              <LockIcon className="w-4 h-4" />
+              <span>Internal Staff Notes (Not visible to customer)</span>
             </h3>
             <div className="space-y-2">
               {notesList.map((note, idx) => (

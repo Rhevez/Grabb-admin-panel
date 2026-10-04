@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { TableActionsDropdown } from "@/components/common/table-actions-dropdown";
 import { EmptyState } from "@/components/common/empty-state";
 import { downloadCSV } from "@/utils/download";
+import { DownloadIcon } from "@/assets/icons";
 
 interface Ticket {
   id: string;
@@ -179,7 +180,7 @@ export default function SupportTicketsPage() {
             className="rounded-lg border border-stroke bg-white px-4 py-2 text-sm font-semibold text-dark hover:bg-gray-2 dark:border-stroke-dark dark:bg-dark-2 dark:text-white dark:hover:bg-dark-3 transition-colors flex items-center gap-2"
           >
             <span>Export CSV</span>
-            <span>📥</span>
+            <DownloadIcon className="w-4 h-4" />
           </button>
           <button
             onClick={() => setIsCreateModalOpen(true)}

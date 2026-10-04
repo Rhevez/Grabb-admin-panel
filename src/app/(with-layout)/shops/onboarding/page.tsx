@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/common/confirm-modal";
+import { DocumentIcon, CheckIcon } from "@/assets/icons";
 
 interface PendingShop {
   id: string;
@@ -125,15 +126,17 @@ export default function ShopOnboardingPage() {
                   <td className="p-3 space-x-2">
                     <button
                       onClick={() => setSelectedDoc(s.licenseDoc)}
-                      className="text-xs font-bold text-primary underline"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-primary underline"
                     >
-                      License PDF 📄
+                      <DocumentIcon className="w-3.5 h-3.5" />
+                      License PDF
                     </button>
                     <button
                       onClick={() => setSelectedDoc(s.idProofDoc)}
-                      className="text-xs font-bold text-primary underline"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-primary underline"
                     >
-                      ID Proof 📄
+                      <DocumentIcon className="w-3.5 h-3.5" />
+                      ID Proof
                     </button>
                   </td>
                   <td className="p-3 text-right space-x-2">
@@ -155,7 +158,10 @@ export default function ShopOnboardingPage() {
               {pendingShops.length === 0 && (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-sm font-bold text-emerald-500">
-                    ✓ No pending shop onboarding applications in queue.
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <CheckIcon className="w-4 h-4 stroke-[2.5]" />
+                      No pending shop onboarding applications in queue.
+                    </span>
                   </td>
                 </tr>
               )}

@@ -7,6 +7,7 @@ import { TableActionsDropdown } from "@/components/common/table-actions-dropdown
 import { EmptyState } from "@/components/common/empty-state";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 import { downloadCSV } from "@/utils/download";
+import { DownloadIcon } from "@/assets/icons";
 
 interface Plan {
   id: string;
@@ -36,7 +37,7 @@ const DEFAULT_PLANS: Plan[] = [
     price: "₹1,499.00",
     billingPeriod: "Monthly",
     orderLimit: "1,000 orders/mo",
-    activeSubscribers: 2,
+    activeSubscribers: 1,
     status: "active",
     features: ["3 Outlets", "0% Commission on first 100 orders", "Priority Search Ranking", "Dedicated Support"],
   },
@@ -87,12 +88,53 @@ export default function SubscriptionPlans() {
   const fetchPlans = async () => {
     try {
       const { fetchApi } = await import("@/utils/api");
-      const res = await fetchApi("/subscriptions/plans");
-      let fetched: Plan[] = [];
-      if (Array.isArray(res)) fetched = res;
-      else if (res && Array.isArray(res.data)) fetched = res.data;
-      else if (res && Array.isArray(res.results)) fetched = res.results;
-      setPlans(fetched.length > 0 ? fetched : DEFAULT_PLANS);
+      const [resPlans, resActive] = await Promise.allSettled([
+        fetchApi("/subscriptions/plans"),
+        fetchApi("/subscriptions/active"),
+      ]);
+
+      let fetchedPlans: any[] = [];
+      if (resPlans.status === "fulfilled") {
+        const val = resPlans.value;
+        if (Array.isArray(val)) fetchedPlans = val;
+        else if (val && Array.isArray(val.data)) fetchedPlans = val.data;
+        else if (val && Array.isArray(val.results)) fetchedPlans = val.results;
+      }
+
+      let activeSubs: any[] = [];
+      if (resActive.status === "fulfilled") {
+        const val = resActive.value;
+        if (Array.isArray(val)) activeSubs = val;
+        else if (val && Array.isArray(val.data)) activeSubs = val.data;
+        else if (val && Array.isArray(val.results)) activeSubs = val.results;
+      }
+
+      const basePlans = fetchedPlans.length > 0 ? fetchedPlans : DEFAULT_PLANS;
+      const mapped: Plan[] = basePlans.map((p: any) => {
+        const planName = p.name || p.title || "";
+        let activeCount = typeof p.activeSubscribers === "number" ? p.activeSubscribers : (typeof p.active_subscribers === "number" ? p.active_subscribers : 0);
+        if (activeSubs.length > 0) {
+          const matchingActive = activeSubs.filter((s: any) => {
+            const sName = (s.planName || s.plan_name || s.plan?.name || "").trim().toLowerCase();
+            const sStatus = (s.status || "").trim().toLowerCase();
+            return sName === planName.trim().toLowerCase() && sStatus === "active";
+          });
+          activeCount = matchingActive.length;
+        }
+
+        return {
+          id: p.id || p.plan_id || `SUB-PLAN-${p.pk || Date.now()}`,
+          name: planName,
+          price: p.price ? (String(p.price).startsWith("₹") ? String(p.price) : `₹${p.price}`) : "₹0.00",
+          billingPeriod: p.billingPeriod || p.billing_period || "Monthly",
+          orderLimit: p.orderLimit || p.order_limit || "Unlimited",
+          activeSubscribers: activeCount,
+          status: p.status || (p.is_active ? "active" : "inactive") || "active",
+          features: Array.isArray(p.features) ? p.features : (typeof p.features === "string" ? p.features.split(",").map((f: string) => f.trim()) : []),
+        };
+      });
+
+      setPlans(mapped);
     } catch (err: any) {
       if (err?.status !== 404) console.error("Failed to fetch subscription plans:", err);
       setPlans(DEFAULT_PLANS);
@@ -124,7 +166,7 @@ export default function SubscriptionPlans() {
   const openAddModal = () => {
     setEditingPlan(null);
     setFormName("");
-    setFormPrice("₹29.99");
+    setFormPrice("₹999.00");
     setFormBillingPeriod("Monthly");
     setFormOrderLimit("500 orders/mo");
     setFormStatus("active");
@@ -170,7 +212,12 @@ export default function SubscriptionPlans() {
         const { fetchApi } = await import("@/utils/api");
         await fetchApi(`/subscriptions/plans/${editingPlan.id}`, {
           method: "PATCH",
-          body: JSON.stringify(updated),
+          body: JSON.stringify({
+            ...updated,
+            billing_period: formBillingPeriod,
+            order_limit: formOrderLimit,
+            features: featureList,
+          }),
         });
       } catch (err: any) {
         if (err?.status !== 404) console.error("Failed to update plan:", err);
@@ -196,7 +243,13 @@ export default function SubscriptionPlans() {
         const { fetchApi } = await import("@/utils/api");
         await fetchApi("/subscriptions/plans", {
           method: "POST",
-          body: JSON.stringify(newPlan),
+          body: JSON.stringify({
+            ...newPlan,
+            billing_period: formBillingPeriod,
+            order_limit: formOrderLimit,
+            active_subscribers: 0,
+            features: featureList,
+          }),
         });
       } catch (err: any) {
         if (err?.status !== 404) console.error("Failed to create plan:", err);
@@ -254,7 +307,7 @@ export default function SubscriptionPlans() {
             className="rounded-lg border border-stroke bg-white px-4 py-2 text-sm font-semibold text-dark hover:bg-gray-2 dark:border-stroke-dark dark:bg-dark-2 dark:text-white dark:hover:bg-dark-3 transition-colors flex items-center gap-2"
           >
             <span>Export CSV</span>
-            <span>📥</span>
+            <DownloadIcon className="w-4 h-4" />
           </button>
           <button
             onClick={openAddModal}

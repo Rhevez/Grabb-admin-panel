@@ -7,6 +7,7 @@ import { TableActionsDropdown } from "@/components/common/table-actions-dropdown
 import { EmptyState } from "@/components/common/empty-state";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 import { downloadCSV } from "@/utils/download";
+import { DownloadIcon } from "@/assets/icons";
 
 interface Subscription {
   id: string;
@@ -117,7 +118,13 @@ export default function ActiveSubscriptions() {
       else if (res && Array.isArray(res.data)) fetched = res.data;
       else if (res && Array.isArray(res.results)) fetched = res.results;
       if (fetched.length > 0) {
-        setAvailablePlans(fetched.map((p) => ({ id: p.id, name: p.name, price: p.price })));
+        setAvailablePlans(
+          fetched.map((p: any) => ({
+            id: p.id || p.plan_id || "",
+            name: p.name || p.title || "",
+            price: p.price ? (String(p.price).startsWith("₹") ? String(p.price) : `₹${p.price}`) : "₹0.00",
+          }))
+        );
       }
     } catch (err: any) {
       if (err?.status !== 404) console.error("Failed to fetch available plans:", err);
@@ -128,11 +135,31 @@ export default function ActiveSubscriptions() {
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/subscriptions/active");
-      let fetched: Subscription[] = [];
+      let fetched: any[] = [];
       if (Array.isArray(res)) fetched = res;
       else if (res && Array.isArray(res.data)) fetched = res.data;
       else if (res && Array.isArray(res.results)) fetched = res.results;
-      setSubscriptions(fetched.length > 0 ? fetched : DEFAULT_SUBSCRIPTIONS);
+      if (fetched.length > 0) {
+        const mapped = fetched.map((s: any) => ({
+          id: s.id || s.subscription_id || `SUB-${s.pk}`,
+          shopName: s.shopName || s.shop_name || s.shop?.name || "",
+          ownerName: s.ownerName || s.owner_name || s.shop?.owner_name || "",
+          planName: s.planName || s.plan_name || s.plan?.name || "",
+          startDate: s.startDate || s.start_date || "",
+          expiryDate: s.expiryDate || s.expiry_date || s.end_date || "",
+          amountPaid: s.amountPaid
+            ? (String(s.amountPaid).startsWith("₹") ? String(s.amountPaid) : `₹${s.amountPaid}`)
+            : (s.amount_paid
+                ? (String(s.amount_paid).startsWith("₹") ? String(s.amount_paid) : `₹${s.amount_paid}`)
+                : "₹0.00"),
+          autoRenew: typeof s.autoRenew === "boolean" ? s.autoRenew : (typeof s.auto_renew === "boolean" ? s.auto_renew : true),
+          status: (s.status || "active").toLowerCase() as "active" | "past_due" | "cancelled",
+          paymentStatus: (s.paymentStatus || s.payment_status || "paid").toLowerCase() as "paid" | "pending" | "failed",
+        }));
+        setSubscriptions(mapped);
+      } else {
+        setSubscriptions(DEFAULT_SUBSCRIPTIONS);
+      }
     } catch (err: any) {
       if (err?.status !== 404) console.error("Failed to fetch subscriptions:", err);
       setSubscriptions(DEFAULT_SUBSCRIPTIONS);
@@ -205,7 +232,12 @@ export default function ActiveSubscriptions() {
       const { fetchApi } = await import("@/utils/api");
       await fetchApi(`/subscriptions/active/${editingSub.id}`, {
         method: "PATCH",
-        body: JSON.stringify(updatedSub),
+        body: JSON.stringify({
+          ...updatedSub,
+          plan_name: editPlanName,
+          amount_paid: editAmountPaid.replace(/[^0-9.]/g, ""),
+          auto_renew: editAutoRenew,
+        }),
       });
     } catch (err: any) {
       if (err?.status !== 404) console.error("Failed to update subscription:", err);
@@ -225,7 +257,11 @@ export default function ActiveSubscriptions() {
       const { fetchApi } = await import("@/utils/api");
       await fetchApi(`/subscriptions/active/${cancelTargetId}`, {
         method: "PATCH",
-        body: JSON.stringify({ status: "cancelled", autoRenew: false }),
+        body: JSON.stringify({
+          status: "cancelled",
+          autoRenew: false,
+          auto_renew: false,
+        }),
       });
     } catch (err: any) {
       if (err?.status !== 404) console.error("Failed to cancel subscription:", err);
@@ -269,7 +305,7 @@ export default function ActiveSubscriptions() {
           className="rounded-lg border border-stroke bg-white px-4 py-2 text-sm font-semibold text-dark hover:bg-gray-2 dark:border-stroke-dark dark:bg-dark-2 dark:text-white dark:hover:bg-dark-3 transition-colors flex items-center gap-2 self-start sm:self-auto"
         >
           <span>Export CSV</span>
-          <span>📥</span>
+          <DownloadIcon className="w-4 h-4" />
         </button>
       </div>
 
@@ -508,6 +544,11 @@ export default function ActiveSubscriptions() {
                   }}
                   className="w-full rounded-lg border border-stroke bg-gray-2 p-2.5 text-sm text-dark outline-none focus:border-primary dark:border-stroke-dark dark:bg-dark-2 dark:text-white"
                 >
+                  {!availablePlans.some((p) => p.name === editPlanName) && editPlanName && (
+                    <option value={editPlanName}>
+                      {editPlanName} ({editAmountPaid}/mo)
+                    </option>
+                  )}
                   {availablePlans.map((p) => (
                     <option key={p.id} value={p.name}>
                       {p.name} ({p.price}/mo)
