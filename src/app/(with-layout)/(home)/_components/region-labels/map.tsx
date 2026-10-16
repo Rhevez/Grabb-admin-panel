@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import jsVectorMap from "jsvectormap";
 import { useEffect } from "react";
@@ -52,3 +52,4 @@ export default function Map() {
     </div>
   );
 }
+

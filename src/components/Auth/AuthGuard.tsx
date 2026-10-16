@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -17,18 +17,27 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       } catch (err: any) {
         console.error("AuthGuard verification failed:", err);
         
-        // If it's explicitly a 401 Unauthorized, log them out gracefully
-        if (err.status === 401 || err.message?.toLowerCase().includes("unauthorized") || err.message?.toLowerCase().includes("invalid token")) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("admin");
-          import("sonner").then(({ toast }) => toast.info("Your session has expired. Please log in again."));
-          router.push("/auth/sign-in");
-        } else {
-          // If it's a 404 or 500 (meaning backend endpoint missing/broken), 
-          // don't delete the token, just let them in or show a warning.
-          import("sonner").then(({ toast }) => toast.error(`Auth Verification Failed: ${err.message}`));
-          setLoading(false); // Let them see the dashboard anyway for debugging
-        }
+        // Clear stored session on any authorization or token error
+        localStorage.removeItem("token");
+        localStorage.removeItem("admin");
+        
+        const isAuthError =
+          err.status === 401 ||
+          err.status === 403 ||
+          err.message?.toLowerCase().includes("unauthorized") ||
+          err.message?.toLowerCase().includes("forbidden") ||
+          err.message?.toLowerCase().includes("permission") ||
+          err.message?.toLowerCase().includes("invalid token");
+
+        import("sonner").then(({ toast }) => {
+          if (isAuthError) {
+            toast.info("Your session has expired or is unauthorized. Please log in again.");
+          } else {
+            toast.error(`Session verification failed: ${err.message}`);
+          }
+        });
+        
+        router.push("/auth/sign-in");
       }
     };
 

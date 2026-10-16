@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { EmailIcon, PasswordIcon } from "@/assets/icons";
 import { signIn } from "@/lib/auth/auth-client";
@@ -148,3 +148,4 @@ export default function SigninWithPassword() {
     </div>
   );
 }
+

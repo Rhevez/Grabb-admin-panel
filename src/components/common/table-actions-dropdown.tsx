@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -35,11 +35,14 @@ export function TableActionsDropdown({ actions, className }: TableActionsDropdow
     <div className={cn("relative inline-block text-left", className)} ref={dropdownRef}>
       <button
         type="button"
+        aria-label="Row actions menu"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
         onClick={(e) => {
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="flex size-8 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors cursor-pointer"
+        className="flex size-9 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-white transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -91,3 +94,4 @@ export function TableActionsDropdown({ actions, className }: TableActionsDropdow
     </div>
   );
 }
+

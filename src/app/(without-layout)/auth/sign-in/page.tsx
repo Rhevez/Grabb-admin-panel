@@ -1,4 +1,4 @@
-import Signin from "@/components/Auth/Signin";
+﻿import Signin from "@/components/Auth/Signin";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,7 +17,7 @@ export default function SignIn() {
       </div>
 
       <div className="hidden w-full p-6 xl:block xl:w-1/2">
-        <div className="custom-gradient-1 overflow-hidden rounded-2xl px-15 pt-12.5 dark:bg-dark-2! dark:bg-none">
+        <div className="custom-gradient-1 overflow-hidden rounded-2xl px-15 pt-12.5 dark:bg-[#122031] dark:!bg-none border border-stroke dark:border-stroke-dark shadow-sm">
           <Link className="mb-10 inline-block" href="/">
             <Image
               className="hidden dark:block"
@@ -61,3 +61,4 @@ export default function SignIn() {
     </div>
   );
 }
+
