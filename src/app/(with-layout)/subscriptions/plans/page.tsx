@@ -20,49 +20,6 @@ interface Plan {
   features: string[];
 }
 
-const DEFAULT_PLANS: Plan[] = [
-  {
-    id: "SUB-PLAN-1",
-    name: "Lite Starter",
-    price: "₹499.00",
-    billingPeriod: "Monthly",
-    orderLimit: "150 orders/mo",
-    activeSubscribers: 1,
-    status: "active",
-    features: ["1 Outlet", "Standard Listing", "Email Support", "Daily Order Quota (50/day)"],
-  },
-  {
-    id: "SUB-PLAN-2",
-    name: "Growth Professional",
-    price: "₹1,499.00",
-    billingPeriod: "Monthly",
-    orderLimit: "1,000 orders/mo",
-    activeSubscribers: 1,
-    status: "active",
-    features: ["3 Outlets", "0% Commission on first 100 orders", "Priority Search Ranking", "Dedicated Support"],
-  },
-  {
-    id: "SUB-PLAN-3",
-    name: "Enterprise Elite",
-    price: "₹3,999.00",
-    billingPeriod: "Monthly",
-    orderLimit: "Unlimited",
-    activeSubscribers: 1,
-    status: "active",
-    features: ["Unlimited Outlets", "Zero Order Limits", "24/7 Phone Support", "Custom Marketing Banners"],
-  },
-  {
-    id: "SUB-PLAN-4",
-    name: "Legacy Trial",
-    price: "₹0.00",
-    billingPeriod: "One-time",
-    orderLimit: "20 orders total",
-    activeSubscribers: 0,
-    status: "inactive",
-    features: ["1 Outlet", "Basic Analytics"],
-  },
-];
-
 export default function SubscriptionPlans() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +32,7 @@ export default function SubscriptionPlans() {
 
   // Form fields
   const [formName, setFormName] = useState("");
-  const [formPrice, setFormPrice] = useState("₹29.99");
+  const [formPrice, setFormPrice] = useState("₹499.00");
   const [formBillingPeriod, setFormBillingPeriod] = useState("Monthly");
   const [formOrderLimit, setFormOrderLimit] = useState("500 orders/mo");
   const [formStatus, setFormStatus] = useState<"active" | "inactive">("active");
@@ -86,6 +43,7 @@ export default function SubscriptionPlans() {
   }, []);
 
   const fetchPlans = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const [resPlans, resActive] = await Promise.allSettled([
@@ -109,8 +67,7 @@ export default function SubscriptionPlans() {
         else if (val && Array.isArray(val.results)) activeSubs = val.results;
       }
 
-      const basePlans = fetchedPlans.length > 0 ? fetchedPlans : DEFAULT_PLANS;
-      const mapped: Plan[] = basePlans.map((p: any) => {
+      const mapped: Plan[] = fetchedPlans.map((p: any) => {
         const planName = p.name || p.title || "";
         let activeCount = typeof p.activeSubscribers === "number" ? p.activeSubscribers : (typeof p.active_subscribers === "number" ? p.active_subscribers : 0);
         if (activeSubs.length > 0) {
@@ -136,8 +93,9 @@ export default function SubscriptionPlans() {
 
       setPlans(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch subscription plans:", err);
-      setPlans(DEFAULT_PLANS);
+      console.error("Failed to fetch subscription plans:", err);
+      toast.error(err?.message || "Failed to load subscription plans");
+      setPlans([]);
     } finally {
       setLoading(false);
     }
@@ -320,7 +278,12 @@ export default function SubscriptionPlans() {
 
       {/* Main Table section */}
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
-        {plans.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-12 space-y-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-dark-4 dark:text-dark-6">Loading subscription plans...</p>
+          </div>
+        ) : plans.length === 0 ? (
           <EmptyState
             variant="plans"
             title="No Subscription Plans Configured"

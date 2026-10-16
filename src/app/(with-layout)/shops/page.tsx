@@ -24,81 +24,38 @@ interface Shop {
   isDeleted?: boolean;
 }
 
-const DEFAULT_SHOPS: Shop[] = [
-  {
-    id: "s1",
-    name: "Green Grocery Fresh",
-    ownerName: "Rajesh Kumar",
-    phone: "+91 98111 55443",
-    status: "active",
-    hours: "07:00 AM - 10:00 PM",
-    radius: "5.0 km",
-    productsCount: 420,
-    ordersMonth: 1240,
-  },
-  {
-    id: "s2",
-    name: "Urban Organic Mart",
-    ownerName: "Pooja Mehta",
-    phone: "+91 98222 66554",
-    status: "active",
-    hours: "08:00 AM - 09:30 PM",
-    radius: "7.5 km",
-    productsCount: 310,
-    ordersMonth: 890,
-  },
-  {
-    id: "s3",
-    name: "Daily Needs Superstore",
-    ownerName: "Sunil Verma",
-    phone: "+91 98333 77665",
-    status: "active",
-    hours: "06:30 AM - 11:00 PM",
-    radius: "10.0 km",
-    productsCount: 650,
-    ordersMonth: 1520,
-  },
-  {
-    id: "s4",
-    name: "Healthy Harvest Organics",
-    ownerName: "Anita Roy",
-    phone: "+91 98444 88776",
-    status: "pending",
-    hours: "09:00 AM - 08:00 PM",
-    radius: "4.0 km",
-    productsCount: 85,
-    ordersMonth: 0,
-  },
-  {
-    id: "s5",
-    name: "Old City Grocery Corner",
-    ownerName: "Mohd. Ali",
-    phone: "+91 98555 99887",
-    status: "inactive",
-    hours: "09:00 AM - 07:00 PM",
-    radius: "3.0 km",
-    productsCount: 120,
-    ordersMonth: 45,
-    isDeleted: true,
-  },
-];
-
 export default function ShopsPage() {
   const [tab, setTab] = useState<"active" | "trash">("active");
   const [search, setSearch] = useState("");
   const [shops, setShops] = useState<Shop[]>([]);
+  const [pendingCount, setPendingCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchShops();
+    fetchPendingCount();
   }, []);
 
+  const fetchPendingCount = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/vendor/shops/pending");
+      const list = Array.isArray(res) ? res : res?.data || res?.results || [];
+      if (Array.isArray(list)) {
+        setPendingCount(list.length);
+      }
+    } catch {
+      // Non-critical count
+    }
+  };
+
   const fetchShops = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/vendor/shops");
-      let fetched: Shop[] = [];
+      let fetched: any[] = [];
       if (Array.isArray(res)) {
         fetched = res;
       } else if (res && Array.isArray(res.data)) {
@@ -106,12 +63,25 @@ export default function ShopsPage() {
       } else if (res && Array.isArray(res.results)) {
         fetched = res.results;
       }
-      setShops(fetched.length > 0 ? fetched : DEFAULT_SHOPS);
+
+      const mapped: Shop[] = fetched.map((s) => ({
+        id: s.id,
+        name: s.name || "Unnamed Shop",
+        ownerName: s.ownerName || s.owner_name || "N/A",
+        phone: s.phone || "N/A",
+        status: s.status || "active",
+        hours: s.hours || "08:00 AM - 10:00 PM",
+        radius: typeof s.radius === "number" ? `${s.radius} km` : (s.radius || "5.0 km"),
+        productsCount: s.productsCount ?? s.products_count ?? 0,
+        ordersMonth: s.ordersMonth ?? s.orders_month ?? 0,
+        isDeleted: Boolean(s.isDeleted ?? s.is_deleted),
+      }));
+
+      setShops(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) {
-        console.error("Failed to fetch shops:", err);
-      }
-      setShops(DEFAULT_SHOPS);
+      console.error("Failed to fetch shops:", err);
+      toast.error(err?.message || "Failed to load shops from backend");
+      setShops([]);
     } finally {
       setLoading(false);
     }
@@ -123,9 +93,25 @@ export default function ShopsPage() {
     const matchesTab = tab === "trash" ? s.isDeleted : !s.isDeleted;
     const matchesSearch =
       (s.name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (s.ownerName || "").toLowerCase().includes(search.toLowerCase());
+      (s.ownerName || "").toLowerCase().includes(search.toLowerCase()) ||
+      (s.phone || "").toLowerCase().includes(search.toLowerCase());
     return matchesTab && matchesSearch;
   });
+
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    const nextStatus = currentStatus === "active" ? "inactive" : "active";
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/vendor/shops/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      setShops((prev) => prev.map((s) => (s.id === id ? { ...s, status: nextStatus as any } : s)));
+      toast.success(`Shop status changed to ${nextStatus.toUpperCase()}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update status");
+    }
+  };
 
   const handleSoftDelete = async (id: string) => {
     try {
@@ -134,10 +120,12 @@ export default function ShopsPage() {
         method: "PATCH",
         body: JSON.stringify({ isDeleted: true, is_deleted: true }),
       });
+      setShops((prev) => prev.map((s) => (s.id === id ? { ...s, isDeleted: true } : s)));
+      toast.success("Shop moved to trash");
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Error deleting shop:", err);
+      toast.error(err?.message || "Failed to delete shop");
     }
-    setShops((prev) => prev.map((s) => (s.id === id ? { ...s, isDeleted: true } : s)));
+    setDeleteTargetId(null);
   };
 
   const handleRestore = async (id: string) => {
@@ -147,10 +135,11 @@ export default function ShopsPage() {
         method: "PATCH",
         body: JSON.stringify({ isDeleted: false, is_deleted: false }),
       });
+      setShops((prev) => prev.map((s) => (s.id === id ? { ...s, isDeleted: false } : s)));
+      toast.success("Shop restored successfully");
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Error restoring shop:", err);
+      toast.error(err?.message || "Failed to restore shop");
     }
-    setShops((prev) => prev.map((s) => (s.id === id ? { ...s, isDeleted: false } : s)));
   };
 
   return (
@@ -164,9 +153,12 @@ export default function ShopsPage() {
         </div>
         <Link
           href="/shops/onboarding"
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-1 hover:bg-primary/90 transition-colors self-start sm:self-auto"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-1 hover:bg-primary/90 transition-colors self-start sm:self-auto flex items-center gap-2"
         >
-          Pending Approvals Queue (1)
+          <span>Pending Approvals Queue</span>
+          <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold text-white">
+            {pendingCount}
+          </span>
         </Link>
       </div>
 
@@ -193,7 +185,12 @@ export default function ShopsPage() {
         trashCount={shops.filter((s) => s.isDeleted).length}
       >
         <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
-          {filteredShops.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center p-12 space-y-3">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <p className="text-sm text-dark-4 dark:text-dark-6">Loading shops...</p>
+            </div>
+          ) : filteredShops.length === 0 ? (
             <EmptyState
               variant="catalog"
               title={tab === "trash" ? "Trash is Empty" : "No Shops Found"}
@@ -241,6 +238,10 @@ export default function ShopsPage() {
                                   label: "Edit Shop",
                                   onClick: () => window.location.href = `/shops/${s.id}`,
                                   variant: "primary",
+                                },
+                                {
+                                  label: s.status === "active" ? "Set Inactive" : "Set Active",
+                                  onClick: () => handleToggleStatus(s.id, s.status),
                                 },
                                 {
                                   label: "Delete",

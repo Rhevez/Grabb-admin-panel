@@ -25,9 +25,19 @@ export default function AdminsPage() {
   }, []);
 
   const fetchAdmins = async () => {
+    setLoading(true);
     try {
       const res = await fetchApi("/users/admins");
-      setAdmins(res.data || res.results || res || []);
+      const rawList = Array.isArray(res) ? res : res.data || res.results || [];
+      const mapped: AdminUser[] = rawList.map((a: any) => ({
+        id: a.id,
+        name: a.name || a.full_name || "Admin User",
+        email: a.email,
+        role: a.role || "ADMIN",
+        status: a.status ? a.status : (a.is_active !== false ? "active" : "inactive"),
+        lastLogin: a.lastLogin || (a.last_login ? new Date(a.last_login).toLocaleString() : (a.created_at ? new Date(a.created_at).toLocaleDateString() : "Active")),
+      }));
+      setAdmins(mapped);
     } catch (err: any) {
       toast.error(err.message || "Failed to load admins");
     } finally {
@@ -43,7 +53,10 @@ export default function AdminsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const handleAddAdmin = async () => {
-    if (!name.trim() || !email.trim() || !password.trim()) return;
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
     setSubmitting(true);
     try {
       await fetchApi("/users/admins/invite", {
@@ -81,7 +94,7 @@ export default function AdminsPage() {
     }
   };
 
-  const modules = ["Dashboard", "Analytics", "Orders", "Catalog", "Shops", "Delivery Partners", "Users", "Promotions", "Finance", "Settings"];
+  const modules = ["Dashboard", "Analytics", "Orders", "Catalog", "Shops", "Subscriptions", "Users", "Promotions", "Finance", "Settings"];
   const roles = ["Super Admin", "Ops Manager", "Support Rep", "Finance Manager"];
 
   return (
@@ -104,6 +117,12 @@ export default function AdminsPage() {
       {/* Admins Table */}
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
         <h3 className="text-base font-bold text-dark dark:text-white mb-4">Staff Admin Accounts</h3>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-12 space-y-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-dark-4 dark:text-dark-6">Loading administrators...</p>
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-dark dark:text-white whitespace-nowrap">
             <thead className="bg-gray-2 text-xs font-semibold uppercase text-dark-4 dark:bg-dark-2 dark:text-dark-6">
@@ -144,9 +163,17 @@ export default function AdminsPage() {
                   </td>
                 </tr>
               ))}
+              {admins.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-sm text-dark-4 dark:text-dark-6">
+                    No administrator accounts found. Click "+ Add Admin User" to create one.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* Role Permission Matrix Grid */}

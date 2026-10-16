@@ -14,31 +14,53 @@ export default function ShopDetailPage({ params }: PageProps) {
   const { id } = use(params);
 
   const [activeTab, setActiveTab] = useState<"profile" | "location" | "hours" | "products">("profile");
-  const [shopName, setShopName] = useState("Green Grocery Fresh");
-  const [ownerName, setOwnerName] = useState("Rajesh Kumar");
-  const [phone, setPhone] = useState("+91 98111 55443");
+  const [shopName, setShopName] = useState("");
+  const [ownerName, setOwnerName] = useState("");
+  const [phone, setPhone] = useState("");
   const [radius, setRadius] = useState(5.0);
   const [status, setStatus] = useState("active");
+  const [productsCount, setProductsCount] = useState(0);
+  const [linkedProducts, setLinkedProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchShopDetail();
+    fetchCatalogProducts();
   }, [id]);
 
   const fetchShopDetail = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi(`/vendor/shops/${id}`);
       const data = res?.data || res;
-      if (data && data.name) {
-        setShopName(data.name || shopName);
-        setOwnerName(data.ownerName || data.owner_name || ownerName);
-        setPhone(data.phone || phone);
-        setRadius(parseFloat(data.radius) || radius);
-        setStatus(data.status || status);
+      if (data && (data.name || data.id)) {
+        setShopName(data.name || "");
+        setOwnerName(data.ownerName || data.owner_name || "");
+        setPhone(data.phone || "");
+        setRadius(parseFloat(data.radius) || 5.0);
+        setStatus(data.status || "active");
+        setProductsCount(data.productsCount ?? data.products_count ?? 0);
       }
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch shop details:", err);
+      console.error("Failed to fetch shop details:", err);
+      toast.error(err?.message || "Failed to load shop details");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCatalogProducts = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/catalog/products");
+      const list = Array.isArray(res) ? res : res?.data || res?.results || [];
+      if (Array.isArray(list)) {
+        setLinkedProducts(list);
+      }
+    } catch {
+      // Non-critical
     }
   };
 
@@ -53,17 +75,13 @@ export default function ShopDetailPage({ params }: PageProps) {
           ownerName,
           owner_name: ownerName,
           phone,
-          radius,
+          radius: `${radius.toFixed(1)} km`,
           status,
         }),
       });
       toast.success("Shop details saved successfully!");
     } catch (err: any) {
-      if (err?.status === 404) {
-        toast.info("Shop details saved locally.");
-      } else {
-        toast.error(err.message || "Failed to save shop details");
-      }
+      toast.error(err.message || "Failed to save shop details");
     } finally {
       setSaving(false);
     }
@@ -78,6 +96,15 @@ export default function ShopDetailPage({ params }: PageProps) {
     { day: "Saturday", open: "07:00", close: "23:00", isClosed: false },
     { day: "Sunday", open: "08:00", close: "21:00", isClosed: false },
   ]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-24 space-y-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="text-sm font-semibold text-dark-4 dark:text-dark-6">Loading shop details...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -114,7 +141,7 @@ export default function ShopDetailPage({ params }: PageProps) {
             { id: "profile", label: "Shop Profile" },
             { id: "location", label: "Location & Delivery Radius" },
             { id: "hours", label: "Operating Hours" },
-            { id: "products", label: "Linked Products (420)" },
+            { id: "products", label: `Linked Products (${productsCount || linkedProducts.length})` },
           ] as const
         ).map((t) => (
           <button
@@ -280,19 +307,25 @@ export default function ShopDetailPage({ params }: PageProps) {
             </Link>
           </div>
           <div className="space-y-2">
-            {[
-              { name: "Fresh Organic Whole Milk 1L", price: "₹3.50", stock: 54 },
-              { name: "Farm Fresh Large Eggs 12pk", price: "₹4.20", stock: 22 },
-              { name: "Organic Brown Bread 400g", price: "₹2.80", stock: 18 },
-            ].map((p, i) => (
-              <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-gray-2 dark:bg-dark-2">
-                <span className="text-sm font-semibold">{p.name}</span>
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="font-bold text-emerald-500">{p.price}</span>
-                  <span className="text-dark-4 dark:text-dark-6">Stock: {p.stock}</span>
+            {linkedProducts.length === 0 ? (
+              <p className="p-4 text-center text-xs text-dark-4 dark:text-dark-6">
+                No catalog products found. Products assigned to this shop will appear here.
+              </p>
+            ) : (
+              linkedProducts.slice(0, 10).map((p, i) => (
+                <div key={p.id || i} className="flex justify-between items-center p-3 rounded-lg bg-gray-2 dark:bg-dark-2">
+                  <span className="text-sm font-semibold">{p.name}</span>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="font-bold text-emerald-500">
+                      {typeof p.price === "string" && p.price.startsWith("₹") ? p.price : `₹${p.price}`}
+                    </span>
+                    <span className="text-dark-4 dark:text-dark-6">
+                      Stock: {p.stock ?? p.stockCount ?? 25}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}

@@ -16,15 +16,6 @@ interface Category {
   isDeleted?: boolean;
 }
 
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: "c1", name: "Fresh Vegetables", subcategoriesCount: 8, productsCount: 142, status: "active", image: "https://via.placeholder.com/150" },
-  { id: "c2", name: "Fresh Fruits", subcategoriesCount: 6, productsCount: 98, status: "active", image: "https://via.placeholder.com/150" },
-  { id: "c3", name: "Dairy & Eggs", subcategoriesCount: 5, productsCount: 76, status: "active", image: "https://via.placeholder.com/150" },
-  { id: "c4", name: "Bakery & Bread", subcategoriesCount: 4, productsCount: 52, status: "active", image: "https://via.placeholder.com/150" },
-  { id: "c5", name: "Beverages & Juices", subcategoriesCount: 7, productsCount: 110, status: "inactive", image: "https://via.placeholder.com/150" },
-  { id: "c6", name: "Seasonal Exotic Goods", subcategoriesCount: 2, productsCount: 15, status: "active", isDeleted: true, image: "https://via.placeholder.com/150" },
-];
-
 export default function CategoriesPage() {
   const [tab, setTab] = useState<"active" | "trash">("active");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -34,6 +25,7 @@ export default function CategoriesPage() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [formName, setFormName] = useState("");
   const [formImage, setFormImage] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,16 +36,54 @@ export default function CategoriesPage() {
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/catalog/categories");
-      let fetched: Category[] = [];
+      let fetched: any[] = [];
       if (Array.isArray(res)) fetched = res;
       else if (res && Array.isArray(res.data)) fetched = res.data;
       else if (res && Array.isArray(res.results)) fetched = res.results;
-      setCategories(fetched.length > 0 ? fetched : DEFAULT_CATEGORIES);
+
+      const mapped: Category[] = fetched.map((c) => ({
+        id: String(c.id),
+        name: c.name || "",
+        subcategoriesCount: c.subcategoriesCount ?? c.subcategories_count ?? 0,
+        productsCount: c.productsCount ?? c.products_count ?? 0,
+        status: (c.status || "active").toLowerCase() as "active" | "inactive",
+        image: c.image || "",
+        isDeleted: Boolean(c.isDeleted ?? c.is_deleted),
+      }));
+
+      setCategories(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch categories:", err);
-      setCategories(DEFAULT_CATEGORIES);
+      console.error("Failed to fetch categories:", err);
+      toast.error(err.message || "Failed to load categories");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetchApi("/media/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const url = res.url || res.data?.url || res.file_url;
+      if (url) {
+        setFormImage(url);
+        toast.success("Image uploaded successfully!");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload image");
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -62,49 +92,35 @@ export default function CategoriesPage() {
   const trashCategories = safeCategories.filter((c) => c.isDeleted);
 
   const handleSave = async () => {
-    if (!formName.trim()) return;
+    if (!formName.trim()) {
+      toast.error("Please enter a category name");
+      return;
+    }
     try {
       const { fetchApi } = await import("@/utils/api");
       if (editingCategory) {
-        try {
-          await fetchApi(`/catalog/categories/${editingCategory.id}`, {
-            method: "PATCH",
-            body: JSON.stringify({ name: formName, image: formImage }),
-          });
-        } catch (err: any) {
-          if (err?.status !== 404) throw err;
-        }
-        setCategories((prev) =>
-          prev.map((c) => (c.id === editingCategory.id ? { ...c, name: formName, image: formImage } : c))
-        );
+        await fetchApi(`/catalog/categories/${editingCategory.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name: formName, image: formImage }),
+        });
+        toast.success("Category updated successfully");
       } else {
         const payload = {
           name: formName,
           image: formImage,
-          subcategoriesCount: 0,
-          productsCount: 0,
           status: "active",
         };
-        let newCat;
-        try {
-          newCat = await fetchApi("/catalog/categories", {
-            method: "POST",
-            body: JSON.stringify(payload),
-          });
-        } catch (err: any) {
-          if (err?.status === 404) {
-            newCat = { id: `c_${Date.now()}`, ...payload };
-          } else {
-            throw err;
-          }
-        }
-        setCategories((prev) => [...prev, newCat]);
+        await fetchApi("/catalog/categories", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        toast.success("Category created successfully");
       }
       setModalOpen(false);
       setFormName("");
       setFormImage("");
       setEditingCategory(null);
-      toast.success(editingCategory ? "Category updated successfully" : "Category created successfully");
+      fetchCategories();
     } catch (err: any) {
       toast.error(err.message || "Failed to save category");
     }
@@ -117,10 +133,13 @@ export default function CategoriesPage() {
         method: "PATCH",
         body: JSON.stringify({ isDeleted: true, is_deleted: true }),
       });
+      toast.success("Category moved to trash");
+      fetchCategories();
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Error deleting category:", err);
+      toast.error(err.message || "Error deleting category");
+    } finally {
+      setDeleteTargetId(null);
     }
-    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, isDeleted: true } : c)));
   };
 
   const handleRestore = async (id: string) => {
@@ -130,10 +149,11 @@ export default function CategoriesPage() {
         method: "PATCH",
         body: JSON.stringify({ isDeleted: false, is_deleted: false }),
       });
+      toast.success("Category restored");
+      fetchCategories();
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Error restoring category:", err);
+      toast.error(err.message || "Error restoring category");
     }
-    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, isDeleted: false } : c)));
   };
 
   const toggleStatus = async (id: string) => {
@@ -146,21 +166,22 @@ export default function CategoriesPage() {
         method: "PATCH",
         body: JSON.stringify({ status: nextStatus }),
       });
+      toast.success(`Category marked as ${nextStatus}`);
+      fetchCategories();
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Error toggling category status:", err);
+      toast.error(err.message || "Failed to update category status");
     }
-    setCategories((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: nextStatus } : c))
-    );
   };
+
+  const currentList = tab === "active" ? activeCategories : trashCategories;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-dark dark:text-white">Category Management</h1>
+          <h1 className="text-2xl font-bold text-dark dark:text-white">Product Categories</h1>
           <p className="text-sm text-dark-4 dark:text-dark-6">
-            Admin-only master product categories. Soft delete throughout (no data loss).
+            Manage top-level catalog departments, subcategory counts, and client visibility.
           </p>
         </div>
         <button
@@ -170,91 +191,114 @@ export default function CategoriesPage() {
             setFormImage("");
             setModalOpen(true);
           }}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-1 hover:bg-primary/90 transition-colors self-start sm:self-auto"
+          className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-1 transition-all hover:bg-primary/90"
         >
           + Add Category
         </button>
       </div>
 
       <TrashTabWrapper
-        activeTab={tab}
-        onTabChange={setTab}
         activeCount={activeCategories.length}
         trashCount={trashCategories.length}
+        activeTab={tab}
+        onTabChange={setTab}
       >
-        <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
+        <div className="rounded-2xl border border-stroke bg-white shadow-1 dark:border-stroke-dark dark:bg-gray-dark overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-dark dark:text-white whitespace-nowrap">
               <thead className="bg-gray-2 text-xs font-semibold uppercase text-dark-4 dark:bg-dark-2 dark:text-dark-6">
                 <tr>
-                  <th className="p-3">Image</th>
-                  <th className="p-3">Category Name</th>
-                  <th className="p-3">Subcategories</th>
-                  <th className="p-3">Total Products</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 text-right">Actions</th>
+                  <th className="p-4">Department</th>
+                  <th className="p-4">Subcategories</th>
+                  <th className="p-4">Products</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stroke dark:divide-stroke-dark">
-                {(tab === "active" ? activeCategories : trashCategories).map((cat) => (
-                  <tr key={cat.id} className="hover:bg-gray-2 dark:hover:bg-dark-2">
-                    <td className="p-3">
-                      <div className="h-10 w-10 overflow-hidden rounded-lg border border-stroke dark:border-stroke-dark bg-gray-2 dark:bg-dark-2">
-                        {cat.image ? (
-                          <img src={cat.image} alt={cat.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs text-dark-4 dark:text-dark-6">N/A</div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3 font-bold">{cat.name}</td>
-                    <td className="p-3">{cat.subcategoriesCount} subcategories</td>
-                    <td className="p-3">{cat.productsCount} products</td>
-                    <td className="p-3">
-                      <button
-                        onClick={() => toggleStatus(cat.id)}
-                        className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          cat.status === "active"
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                        }`}
-                      >
-                        {cat.status.toUpperCase()}
-                      </button>
-                    </td>
-                    <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      <TableActionsDropdown
-                        actions={
-                          tab === "active"
-                            ? [
-                                {
-                                  label: "Edit Category",
-                                  onClick: () => {
-                                    setEditingCategory(cat);
-                                    setFormName(cat.name);
-                                    setFormImage(cat.image || "");
-                                    setModalOpen(true);
-                                  },
-                                  variant: "primary",
-                                },
-                                {
-                                  label: "Delete",
-                                  onClick: () => setDeleteTargetId(cat.id),
-                                  variant: "danger",
-                                },
-                              ]
-                            : [
-                                {
-                                  label: "Restore Category",
-                                  onClick: () => handleRestore(cat.id),
-                                  variant: "primary",
-                                },
-                              ]
-                        }
-                      />
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-dark-4 dark:text-dark-6">
+                      Loading categories from database...
                     </td>
                   </tr>
-                ))}
+                ) : currentList.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-dark-4 dark:text-dark-6">
+                      {tab === "active" ? "No active categories found. Click '+ Add Category' to create one." : "Trash is currently empty."}
+                    </td>
+                  </tr>
+                ) : (
+                  currentList.map((cat) => (
+                    <tr key={cat.id} className="hover:bg-gray-2 dark:hover:bg-dark-2 transition-colors">
+                      <td className="p-4 flex items-center gap-3">
+                        {cat.image ? (
+                          <img
+                            src={cat.image}
+                            alt={cat.name}
+                            className="h-10 w-10 rounded-lg object-cover bg-gray-2 dark:bg-dark-2"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                            {cat.name.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="font-semibold text-dark dark:text-white">{cat.name}</span>
+                      </td>
+                      <td className="p-4 text-dark-4 dark:text-dark-6 font-medium">
+                        {cat.subcategoriesCount} Subcategories
+                      </td>
+                      <td className="p-4 text-dark-4 dark:text-dark-6 font-medium">
+                        {cat.productsCount} Items
+                      </td>
+                      <td className="p-4">
+                        <button
+                          onClick={() => toggleStatus(cat.id)}
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer transition-all ${
+                            cat.status === "active"
+                              ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+                              : "bg-rose-500/10 text-rose-500 hover:bg-rose-500/20"
+                          }`}
+                        >
+                          {cat.status === "active" ? "Active" : "Inactive"}
+                        </button>
+                      </td>
+                      <td className="p-4 text-right">
+                        <TableActionsDropdown
+                          actions={
+                            tab === "active"
+                              ? [
+                                  {
+                                    label: "Edit Category",
+                                    onClick: () => {
+                                      setEditingCategory(cat);
+                                      setFormName(cat.name);
+                                      setFormImage(cat.image || "");
+                                      setModalOpen(true);
+                                    },
+                                  },
+                                  {
+                                    label: "Move to Trash",
+                                    onClick: () => setDeleteTargetId(cat.id),
+                                    variant: "danger",
+                                  },
+                                ]
+                              : [
+                                  {
+                                    label: "Restore Category",
+                                    onClick: () => handleRestore(cat.id),
+                                    variant: "primary",
+                                  },
+                                ]
+                          }
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -281,19 +325,29 @@ export default function CategoriesPage() {
                   className="w-full rounded-lg border border-stroke bg-gray-2 p-3 text-sm text-dark outline-none focus:border-primary dark:border-stroke-dark dark:bg-dark-2 dark:text-white"
                 />
               </div>
+
               <div>
                 <label className="block text-xs font-semibold text-dark dark:text-white mb-1">
-                  Image URL
+                  Category Image
                 </label>
-                <input
-                  type="text"
-                  value={formImage}
-                  onChange={(e) => setFormImage(e.target.value)}
-                  placeholder="https://example.com/image.jpg"
-                  className="w-full rounded-lg border border-stroke bg-gray-2 p-3 text-sm text-dark outline-none focus:border-primary dark:border-stroke-dark dark:bg-dark-2 dark:text-white"
-                />
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="block w-full text-xs text-dark-4 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90 cursor-pointer"
+                  />
+                  {uploadingImage && <span className="text-xs text-primary font-medium animate-pulse">Uploading...</span>}
+                </div>
+                {formImage && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <img src={formImage} alt="Preview" className="h-10 w-10 rounded-lg object-cover border border-stroke dark:border-stroke-dark" />
+                    <span className="text-[11px] text-dark-4 dark:text-dark-6 truncate max-w-[200px]">{formImage}</span>
+                  </div>
+                )}
               </div>
             </div>
+
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setModalOpen(false)}
@@ -303,7 +357,8 @@ export default function CategoriesPage() {
               </button>
               <button
                 onClick={handleSave}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+                disabled={uploadingImage}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
               >
                 Save Category
               </button>

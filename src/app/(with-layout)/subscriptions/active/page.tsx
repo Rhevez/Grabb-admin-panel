@@ -28,67 +28,9 @@ interface PlanOption {
   price: string;
 }
 
-const DEFAULT_PLAN_OPTIONS: PlanOption[] = [
-  { id: "SUB-PLAN-1", name: "Lite Starter", price: "₹499.00" },
-  { id: "SUB-PLAN-2", name: "Growth Professional", price: "₹1,499.00" },
-  { id: "SUB-PLAN-3", name: "Enterprise Elite", price: "₹3,999.00" },
-  { id: "SUB-PLAN-4", name: "Legacy Trial", price: "₹0.00" },
-];
-
-const DEFAULT_SUBSCRIPTIONS: Subscription[] = [
-  {
-    id: "SUB-8921",
-    shopName: "Green Grocery Fresh",
-    ownerName: "Rajesh Kumar",
-    planName: "Growth Professional",
-    startDate: "2026-07-01",
-    expiryDate: "2026-08-01",
-    amountPaid: "₹1,499.00",
-    autoRenew: true,
-    status: "active",
-    paymentStatus: "paid",
-  },
-  {
-    id: "SUB-8922",
-    shopName: "Urban Organic Mart",
-    ownerName: "Priya Sharma",
-    planName: "Enterprise Elite",
-    startDate: "2026-06-15",
-    expiryDate: "2026-07-15",
-    amountPaid: "₹3,999.00",
-    autoRenew: false,
-    status: "past_due",
-    paymentStatus: "pending",
-  },
-  {
-    id: "SUB-8923",
-    shopName: "Daily Needs Superstore",
-    ownerName: "Amit Patel",
-    planName: "Lite Starter",
-    startDate: "2026-07-10",
-    expiryDate: "2026-08-10",
-    amountPaid: "₹499.00",
-    autoRenew: true,
-    status: "active",
-    paymentStatus: "paid",
-  },
-  {
-    id: "SUB-8924",
-    shopName: "Spice Garden Essentials",
-    ownerName: "Sunita Rao",
-    planName: "Growth Professional",
-    startDate: "2026-05-01",
-    expiryDate: "2026-06-01",
-    amountPaid: "₹1,499.00",
-    autoRenew: false,
-    status: "cancelled",
-    paymentStatus: "paid",
-  },
-];
-
 export default function ActiveSubscriptions() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [availablePlans, setAvailablePlans] = useState<PlanOption[]>(DEFAULT_PLAN_OPTIONS);
+  const [availablePlans, setAvailablePlans] = useState<PlanOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -127,11 +69,12 @@ export default function ActiveSubscriptions() {
         );
       }
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch available plans:", err);
+      console.error("Failed to fetch available plans:", err);
     }
   };
 
   const fetchSubscriptions = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/subscriptions/active");
@@ -139,30 +82,28 @@ export default function ActiveSubscriptions() {
       if (Array.isArray(res)) fetched = res;
       else if (res && Array.isArray(res.data)) fetched = res.data;
       else if (res && Array.isArray(res.results)) fetched = res.results;
-      if (fetched.length > 0) {
-        const mapped = fetched.map((s: any) => ({
-          id: s.id || s.subscription_id || `SUB-${s.pk}`,
-          shopName: s.shopName || s.shop_name || s.shop?.name || "",
-          ownerName: s.ownerName || s.owner_name || s.shop?.owner_name || "",
-          planName: s.planName || s.plan_name || s.plan?.name || "",
-          startDate: s.startDate || s.start_date || "",
-          expiryDate: s.expiryDate || s.expiry_date || s.end_date || "",
-          amountPaid: s.amountPaid
-            ? (String(s.amountPaid).startsWith("₹") ? String(s.amountPaid) : `₹${s.amountPaid}`)
-            : (s.amount_paid
-                ? (String(s.amount_paid).startsWith("₹") ? String(s.amount_paid) : `₹${s.amount_paid}`)
-                : "₹0.00"),
-          autoRenew: typeof s.autoRenew === "boolean" ? s.autoRenew : (typeof s.auto_renew === "boolean" ? s.auto_renew : true),
-          status: (s.status || "active").toLowerCase() as "active" | "past_due" | "cancelled",
-          paymentStatus: (s.paymentStatus || s.payment_status || "paid").toLowerCase() as "paid" | "pending" | "failed",
-        }));
-        setSubscriptions(mapped);
-      } else {
-        setSubscriptions(DEFAULT_SUBSCRIPTIONS);
-      }
+
+      const mapped = fetched.map((s: any) => ({
+        id: s.id || s.subscription_id || `SUB-${s.pk}`,
+        shopName: s.shopName || s.shop_name || s.shop?.name || "Merchant Shop",
+        ownerName: s.ownerName || s.owner_name || s.shop?.owner_name || "Merchant Owner",
+        planName: s.planName || s.plan_name || s.plan?.name || "Standard Plan",
+        startDate: s.startDate || s.start_date || "",
+        expiryDate: s.expiryDate || s.expiry_date || s.end_date || "",
+        amountPaid: s.amountPaid
+          ? (String(s.amountPaid).startsWith("₹") ? String(s.amountPaid) : `₹${s.amountPaid}`)
+          : (s.amount_paid
+              ? (String(s.amount_paid).startsWith("₹") ? String(s.amount_paid) : `₹${s.amount_paid}`)
+              : "₹0.00"),
+        autoRenew: typeof s.autoRenew === "boolean" ? s.autoRenew : (typeof s.auto_renew === "boolean" ? s.auto_renew : true),
+        status: (s.status || "active").toLowerCase() as "active" | "past_due" | "cancelled",
+        paymentStatus: (s.paymentStatus || s.payment_status || "paid").toLowerCase() as "paid" | "pending" | "failed",
+      }));
+      setSubscriptions(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch subscriptions:", err);
-      setSubscriptions(DEFAULT_SUBSCRIPTIONS);
+      console.error("Failed to fetch subscriptions:", err);
+      toast.error(err?.message || "Failed to load active subscriptions");
+      setSubscriptions([]);
     } finally {
       setLoading(false);
     }
@@ -327,7 +268,12 @@ export default function ActiveSubscriptions() {
 
       {/* Main Table section */}
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
-        {filteredSubs.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-12 space-y-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-dark-4 dark:text-dark-6">Loading active subscriptions...</p>
+          </div>
+        ) : filteredSubs.length === 0 ? (
           <EmptyState
             variant="subscriptions"
             title="No Active Subscriptions Found"
