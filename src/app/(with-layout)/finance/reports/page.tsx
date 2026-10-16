@@ -15,16 +15,10 @@ interface ReportItem {
   format: string;
 }
 
-const DEFAULT_REPORTS: ReportItem[] = [
-  { name: "Monthly Settlement Report - July 2026", date: "Jul 31, 2026", totalRevenue: "₹142,500.00", netPayout: "₹121,125.00", format: "CSV & PDF" },
-  { name: "Weekly Settlement Report - Aug Week 1", date: "Aug 07, 2026", totalRevenue: "₹34,200.00", netPayout: "₹29,070.00", format: "CSV & PDF" },
-  { name: "Quarterly Tax & Commission Summary Q2", date: "Jun 30, 2026", totalRevenue: "₹380,000.00", netPayout: "₹323,000.00", format: "PDF" },
-];
-
 export default function ReportsPage() {
   const [dateRange, setDateRange] = useState("30d");
   const [shop, setShop] = useState("all");
-  const [reports, setReports] = useState<ReportItem[]>(DEFAULT_REPORTS);
+  const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modals state
@@ -39,16 +33,28 @@ export default function ReportsPage() {
   }, []);
 
   const fetchReports = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/finance/reports");
-      let fetched: ReportItem[] = [];
+      let fetched: any[] = [];
       if (Array.isArray(res)) fetched = res;
       else if (res && Array.isArray(res.data)) fetched = res.data;
       else if (res && Array.isArray(res.results)) fetched = res.results;
-      if (fetched.length > 0) setReports(fetched);
+
+      const mapped: ReportItem[] = fetched.map((r: any) => ({
+        name: r.name || "Settlement Report",
+        date: r.date || (r.created_at ? new Date(r.created_at).toLocaleDateString() : "Recent"),
+        totalRevenue: typeof r.totalRevenue === "string" && r.totalRevenue.startsWith("₹") ? r.totalRevenue : `₹${r.totalRevenue || r.gross_revenue || "0.00"}`,
+        netPayout: typeof r.netPayout === "string" && r.netPayout.startsWith("₹") ? r.netPayout : `₹${r.netPayout || r.net_payout || "0.00"}`,
+        format: r.format || "CSV & PDF",
+      }));
+
+      setReports(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch reports:", err);
+      console.error("Failed to fetch reports:", err);
+      toast.error(err?.message || "Failed to load financial reports");
+      setReports([]);
     } finally {
       setLoading(false);
     }
@@ -143,7 +149,12 @@ by the Grabb Platform Administration System.
       />
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
-        {reports.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-12 space-y-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-dark-4 dark:text-dark-6">Loading financial reports...</p>
+          </div>
+        ) : reports.length === 0 ? (
           <EmptyState
             variant="reports"
             title="No Financial Reports Found"

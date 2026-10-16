@@ -20,13 +20,6 @@ interface Ticket {
   createdDate: string;
 }
 
-const DEFAULT_TICKETS: Ticket[] = [
-  { id: "TCK-1042", customerName: "Rahul Sharma", subject: "Wrong item delivered in order #ORD-9821", priority: "high", assignedAgent: "Support Rep Sarah", status: "open", createdDate: "10 mins ago" },
-  { id: "TCK-1041", customerName: "Anita Desai", subject: "Refund query on cancelled milk delivery", priority: "medium", assignedAgent: "Support Rep Mike", status: "in-progress", createdDate: "1 hour ago" },
-  { id: "TCK-1040", customerName: "Karan Patel", subject: "App crashed during UPI checkout", priority: "low", assignedAgent: "Support Rep Sarah", status: "resolved", createdDate: "3 hours ago" },
-  { id: "TCK-1039", customerName: "Pooja Verma", subject: "Driver did not deliver package to door", priority: "medium", assignedAgent: "Unassigned", status: "open", createdDate: "5 hours ago" },
-];
-
 export default function SupportTicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,17 +44,32 @@ export default function SupportTicketsPage() {
   }, []);
 
   const fetchTickets = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/support/tickets");
-      let fetched: Ticket[] = [];
-      if (Array.isArray(res)) fetched = res;
-      else if (res && Array.isArray(res.data)) fetched = res.data;
-      else if (res && Array.isArray(res.results)) fetched = res.results;
-      setTickets(fetched.length > 0 ? fetched : DEFAULT_TICKETS);
+      let rawList: any[] = [];
+      if (Array.isArray(res)) rawList = res;
+      else if (res && Array.isArray(res.data)) rawList = res.data;
+      else if (res && Array.isArray(res.results)) rawList = res.results;
+      else if (res && Array.isArray(res.tickets)) rawList = res.tickets;
+
+      const mapped: Ticket[] = rawList.map((item: any) => ({
+        id: String(item.id || item.ticket_id || `TCK-${Math.floor(1000 + Math.random() * 9000)}`),
+        customerName: item.customerName || item.customer_name || item.customer?.name || item.user_name || "Customer",
+        subject: item.subject || item.title || item.issue || "Support Request",
+        priority: ((item.priority || "medium").toLowerCase()) as "low" | "medium" | "high",
+        assignedAgent: item.assignedAgent || item.assigned_agent || item.agent || item.assigned_to || "Unassigned",
+        status: ((item.status || "open").toLowerCase().replace(/_/g, "-")) as "open" | "in-progress" | "resolved",
+        createdDate: item.createdDate || item.created_date || (item.created_at ? new Date(item.created_at).toLocaleDateString() : "Recently"),
+      }));
+
+      setTickets(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch tickets:", err);
-      setTickets(DEFAULT_TICKETS);
+      if (err?.status !== 404) {
+        console.error("Failed to fetch tickets:", err);
+      }
+      setTickets([]);
     } finally {
       setLoading(false);
     }
@@ -214,7 +222,12 @@ export default function SupportTicketsPage() {
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
-        {filteredTickets.length === 0 ? (
+        {loading ? (
+          <div className="py-16 flex flex-col items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="mt-3 text-sm text-dark-4 dark:text-dark-6">Loading tickets...</p>
+          </div>
+        ) : filteredTickets.length === 0 ? (
           <EmptyState
             variant="tickets"
             title="No Support Tickets Found"

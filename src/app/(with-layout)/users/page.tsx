@@ -21,13 +21,6 @@ interface UserCustomer {
   status: "active" | "inactive";
 }
 
-const DEFAULT_USERS: UserCustomer[] = [
-  { id: "u1", name: "Aarav Sharma", phone: "+91 98765 43210", email: "aarav@example.com", totalOrders: 28, totalSpent: "₹1,240.00", joinedDate: "Jan 12, 2026", status: "active" },
-  { id: "u2", name: "Neha Gupta", phone: "+91 98123 45678", email: "neha@example.com", totalOrders: 14, totalSpent: "₹580.50", joinedDate: "Feb 04, 2026", status: "active" },
-  { id: "u3", name: "Rohan Verma", phone: "+91 97111 22233", email: "rohan@example.com", totalOrders: 9, totalSpent: "₹390.00", joinedDate: "Mar 18, 2026", status: "active" },
-  { id: "u4", name: "Spam Customer", phone: "+91 90000 00000", email: "spam@example.com", totalOrders: 1, totalSpent: "₹12.00", joinedDate: "Aug 01, 2026", status: "inactive" },
-];
-
 export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -40,17 +33,31 @@ export default function UsersPage() {
   }, []);
 
   const fetchCustomers = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/users/customers");
-      let fetched: UserCustomer[] = [];
+      let fetched: any[] = [];
       if (Array.isArray(res)) fetched = res;
       else if (res && Array.isArray(res.data)) fetched = res.data;
       else if (res && Array.isArray(res.results)) fetched = res.results;
-      setUsers(fetched.length > 0 ? fetched : DEFAULT_USERS);
+
+      const mapped: UserCustomer[] = fetched.map((u: any) => ({
+        id: u.id,
+        name: u.name || u.full_name || "Customer",
+        phone: u.phone || "N/A",
+        email: u.email || "N/A",
+        totalOrders: u.totalOrders ?? u.total_orders ?? 0,
+        totalSpent: typeof u.totalSpent === "string" && u.totalSpent.startsWith("₹") ? u.totalSpent : `₹${u.totalSpent ?? u.total_spent ?? "0.00"}`,
+        joinedDate: u.joinedDate || u.joined_date || (u.created_at ? new Date(u.created_at).toLocaleDateString() : "Recent"),
+        status: (u.status || "active").toLowerCase() as any,
+      }));
+
+      setUsers(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch customers:", err);
-      setUsers(DEFAULT_USERS);
+      console.error("Failed to fetch customers:", err);
+      toast.error(err?.message || "Failed to load customers from backend");
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -75,20 +82,21 @@ export default function UsersPage() {
       const { fetchApi } = await import("@/utils/api");
       await fetchApi(`/users/customers/${blockTargetId}/status`, {
         method: "PATCH",
-        body: JSON.stringify({ status: nextStatus, reason }),
+        body: JSON.stringify({ status: nextStatus, reason: reason || "Admin status toggle" }),
       });
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === blockTargetId
+            ? { ...u, status: nextStatus }
+            : u
+        )
+      );
+      toast.success(`Customer status updated to ${nextStatus}!`);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to update customer status:", err);
+      toast.error(err?.message || "Failed to update customer status");
+    } finally {
+      setBlockTargetId(null);
     }
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === blockTargetId
-          ? { ...u, status: nextStatus }
-          : u
-      )
-    );
-    toast.success(`Customer status updated to ${nextStatus}! Reason: ${reason || "N/A"}`);
-    setBlockTargetId(null);
   };
 
   return (
@@ -119,7 +127,12 @@ export default function UsersPage() {
       />
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
-        {filteredUsers.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-12 space-y-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-dark-4 dark:text-dark-6">Loading customers...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
           <EmptyState
             variant="users"
             title="No Customers Found"

@@ -19,14 +19,6 @@ interface PayoutRecord {
   status: "pending" | "paid";
 }
 
-const DEFAULT_PAYOUTS: PayoutRecord[] = [
-  { id: "po1", recipientName: "Green Grocery Fresh", type: "shop", period: "Aug 01 - Aug 07, 2026", ordersCount: 420, amountDue: "₹4,280.00", status: "pending" },
-  { id: "po2", recipientName: "Urban Organic Mart", type: "shop", period: "Aug 01 - Aug 07, 2026", ordersCount: 310, amountDue: "₹3,150.50", status: "pending" },
-  { id: "po3", recipientName: "Daily Needs Superstore", type: "shop", period: "Jul 25 - Jul 31, 2026", ordersCount: 520, amountDue: "₹5,620.00", status: "paid" },
-  { id: "po4", recipientName: "Rahul Sharma (Rider)", type: "partner", period: "Aug 01 - Aug 07, 2026", ordersCount: 48, amountDue: "₹482.00", status: "pending" },
-  { id: "po5", recipientName: "Vikram Singh (Rider)", type: "partner", period: "Aug 01 - Aug 07, 2026", ordersCount: 42, amountDue: "₹420.00", status: "paid" },
-];
-
 export default function PayoutsPage() {
   const [activeTab, setActiveTab] = useState<"shop" | "partner">("shop");
   const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
@@ -39,17 +31,30 @@ export default function PayoutsPage() {
   }, []);
 
   const fetchPayouts = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/finance/payouts");
-      let fetched: PayoutRecord[] = [];
+      let fetched: any[] = [];
       if (Array.isArray(res)) fetched = res;
       else if (res && Array.isArray(res.data)) fetched = res.data;
       else if (res && Array.isArray(res.results)) fetched = res.results;
-      setPayouts(fetched.length > 0 ? fetched : DEFAULT_PAYOUTS);
+
+      const mapped: PayoutRecord[] = fetched.map((p: any) => ({
+        id: p.id || `po-${p.pk}`,
+        recipientName: p.recipientName || p.recipient_name || "Merchant",
+        type: (p.type || "shop").toLowerCase() as any,
+        period: p.period || (p.created_at ? new Date(p.created_at).toLocaleDateString() : "Current Cycle"),
+        ordersCount: p.ordersCount ?? p.orders_count ?? 0,
+        amountDue: typeof p.amountDue === "string" && p.amountDue.startsWith("₹") ? p.amountDue : (typeof p.amount === "string" && p.amount.startsWith("₹") ? p.amount : `₹${p.amountDue || p.amount || "0.00"}`),
+        status: (p.status || "pending").toLowerCase() as any,
+      }));
+
+      setPayouts(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch payouts:", err);
-      setPayouts(DEFAULT_PAYOUTS);
+      console.error("Failed to fetch payouts:", err);
+      toast.error(err?.message || "Failed to load payouts from backend");
+      setPayouts([]);
     } finally {
       setLoading(false);
     }
@@ -177,7 +182,12 @@ Official Grabb Finance & Treasury Verification
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
-        {filteredPayouts.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-12 space-y-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-dark-4 dark:text-dark-6">Loading payouts...</p>
+          </div>
+        ) : filteredPayouts.length === 0 ? (
           <EmptyState
             variant="payouts"
             title={activeTab === "shop" ? "No Shop Vendor Payouts" : "No Delivery Partner Payouts"}

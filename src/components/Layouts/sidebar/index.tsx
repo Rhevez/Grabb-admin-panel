@@ -124,6 +124,11 @@ export function Sidebar() {
                             >
                               <item.icon className="size-6 shrink-0" aria-hidden="true" />
                               {!isCollapsed && <span>{item.title}</span>}
+                              {"badge" in item && Boolean(item.badge) && !isCollapsed && (
+                                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-semibold uppercase tracking-wider">
+                                  {String(item.badge)}
+                                </span>
+                              )}
                               {!isCollapsed && (
                                 <ChevronUp
                                   className={cn(
@@ -140,7 +145,14 @@ export function Sidebar() {
                                 {item.items.map((subItem) => (
                                   <li key={subItem.title} role="none">
                                     <MenuItem as="link" href={subItem.url} isActive={pathname === subItem.url}>
-                                      <span>{subItem.title}</span>
+                                      <span className="flex items-center justify-between w-full">
+                                        <span>{subItem.title}</span>
+                                        {"badge" in subItem && Boolean(subItem.badge) && (
+                                          <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-semibold uppercase tracking-wider">
+                                            {String(subItem.badge)}
+                                          </span>
+                                        )}
+                                      </span>
                                     </MenuItem>
                                   </li>
                                 ))}
@@ -153,7 +165,16 @@ export function Sidebar() {
                             return (
                               <MenuItem className="flex items-center gap-3 py-3" as="link" href={href} isActive={pathname === href}>
                                 <item.icon className="size-6 shrink-0" aria-hidden="true" />
-                                {!isCollapsed && <span>{item.title}</span>}
+                                {!isCollapsed && (
+                                  <span className="flex items-center justify-between flex-1">
+                                    <span>{item.title}</span>
+                                    {"badge" in item && Boolean(item.badge) && (
+                                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-semibold uppercase tracking-wider">
+                                        {String(item.badge)}
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
                               </MenuItem>
                             );
                           })()

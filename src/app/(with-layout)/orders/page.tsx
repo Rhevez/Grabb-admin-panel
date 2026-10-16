@@ -23,71 +23,9 @@ interface OrderItem {
   placedTime: string;
 }
 
-const INITIAL_ORDERS: OrderItem[] = [
-  {
-    id: "ORD-94821",
-    customerName: "Aarav Sharma",
-    phone: "+91 98765 43210",
-    shopName: "Green Grocery Fresh",
-    itemsCount: 6,
-    amount: "₹42.50",
-    paymentStatus: "paid",
-    orderStatus: "out-for-delivery",
-    deliveryPartner: "Rahul Sharma",
-    placedTime: "10 mins ago",
-  },
-  {
-    id: "ORD-94820",
-    customerName: "Neha Gupta",
-    phone: "+91 98123 45678",
-    shopName: "Urban Organic Mart",
-    itemsCount: 4,
-    amount: "₹28.00",
-    paymentStatus: "paid",
-    orderStatus: "packed",
-    deliveryPartner: "Unassigned",
-    placedTime: "25 mins ago",
-  },
-  {
-    id: "ORD-94819",
-    customerName: "Rohan Verma",
-    phone: "+91 97111 22233",
-    shopName: "Daily Needs Superstore",
-    itemsCount: 9,
-    amount: "₹76.80",
-    paymentStatus: "paid",
-    orderStatus: "delivered",
-    deliveryPartner: "Vikram Singh",
-    placedTime: "1 hour ago",
-  },
-  {
-    id: "ORD-94818",
-    customerName: "Kavita Rao",
-    phone: "+91 96555 44433",
-    shopName: "Green Grocery Fresh",
-    itemsCount: 2,
-    amount: "₹15.20",
-    paymentStatus: "pending",
-    orderStatus: "placed",
-    deliveryPartner: "Unassigned",
-    placedTime: "1.5 hours ago",
-  },
-  {
-    id: "ORD-94817",
-    customerName: "Siddharth Jain",
-    phone: "+91 95444 33322",
-    shopName: "Urban Organic Mart",
-    itemsCount: 5,
-    amount: "₹39.00",
-    paymentStatus: "refunded",
-    orderStatus: "cancelled",
-    deliveryPartner: "None",
-    placedTime: "3 hours ago",
-  },
-];
-
 export default function OrdersPage() {
   const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [unassignedCount, setUnassignedCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -98,20 +36,50 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
+    fetchUnassignedCount();
   }, []);
 
+  const fetchUnassignedCount = async () => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      const res = await fetchApi("/orders/unassigned");
+      const list = Array.isArray(res) ? res : res?.data || res?.results || [];
+      if (Array.isArray(list)) {
+        setUnassignedCount(list.length);
+      }
+    } catch {
+      // Non-critical count
+    }
+  };
+
   const fetchOrders = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/orders");
-      let fetched: OrderItem[] = [];
+      let fetched: any[] = [];
       if (Array.isArray(res)) fetched = res;
       else if (res && Array.isArray(res.data)) fetched = res.data;
       else if (res && Array.isArray(res.results)) fetched = res.results;
-      setOrders(fetched.length > 0 ? fetched : INITIAL_ORDERS);
+
+      const mapped: OrderItem[] = fetched.map((o) => ({
+        id: o.id || `ORD-${o.pk}`,
+        customerName: o.customerName || o.customer_name || "Customer",
+        phone: o.phone || "N/A",
+        shopName: o.shopName || o.shop_name || "Partner Shop",
+        itemsCount: o.itemsCount ?? o.items_count ?? 1,
+        amount: typeof o.amount === "string" && o.amount.startsWith("₹") ? o.amount : `₹${o.amount || "0.00"}`,
+        paymentStatus: (o.paymentStatus || o.payment_status || "paid").toLowerCase() as any,
+        orderStatus: (o.orderStatus || o.order_status || "placed").toLowerCase() as any,
+        deliveryPartner: o.deliveryPartner || o.delivery_partner || (o.driver_id ? `Partner #${o.driver_id}` : "Unassigned"),
+        placedTime: o.placedTime || o.placed_time || (o.created_at ? new Date(o.created_at).toLocaleTimeString() : "Recent"),
+      }));
+
+      setOrders(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch orders:", err);
-      setOrders(INITIAL_ORDERS);
+      console.error("Failed to fetch orders:", err);
+      toast.error(err?.message || "Failed to load orders from backend");
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -151,16 +119,33 @@ export default function OrdersPage() {
         body: JSON.stringify({ orderIds: selectedOrderIds, status: targetBulkStatus }),
       });
       toast.success(`Updated ${selectedOrderIds.length} orders to ${targetBulkStatus}`);
+      setOrders((prev) =>
+        prev.map((o) =>
+          selectedOrderIds.includes(o.id) ? { ...o, orderStatus: targetBulkStatus as any } : o
+        )
+      );
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to bulk update orders:", err);
-      toast.success(`Updated ${selectedOrderIds.length} orders to ${targetBulkStatus}`);
+      toast.error(err?.message || "Failed to update bulk status");
+    } finally {
+      setSelectedOrderIds([]);
+      setBulkStatusModal(false);
     }
-    setOrders((prev) =>
-      prev.map((o) =>
-        selectedOrderIds.includes(o.id) ? { ...o, orderStatus: targetBulkStatus as any } : o
-      )
-    );
-    setSelectedOrderIds([]);
+  };
+
+  const handleCancelOrder = async (id: string) => {
+    try {
+      const { fetchApi } = await import("@/utils/api");
+      await fetchApi(`/orders/${id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason: "Admin cancelled from console" }),
+      });
+      setOrders((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, orderStatus: "cancelled" } : o))
+      );
+      toast.success(`Order #${id} has been cancelled`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to cancel order");
+    }
   };
 
   return (
@@ -176,7 +161,10 @@ export default function OrdersPage() {
           href="/orders/unassigned"
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-1 hover:bg-primary/90 transition-colors self-start sm:self-auto"
         >
-          Unassigned Queue (3)
+          <span>Unassigned Queue</span>
+          <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold text-white">
+            {unassignedCount}
+          </span>
         </Link>
       </div>
 
@@ -248,7 +236,12 @@ export default function OrdersPage() {
 
       {/* Orders Table */}
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
-        {filteredOrders.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-12 space-y-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-dark-4 dark:text-dark-6">Loading orders...</p>
+          </div>
+        ) : filteredOrders.length === 0 ? (
           <EmptyState
             variant="orders"
             title="No Orders Found"
@@ -325,10 +318,15 @@ export default function OrdersPage() {
                           onClick: () => window.location.href = `/orders/${o.id}`,
                           variant: "primary",
                         },
-                        {
-                          label: "Edit Order",
-                          onClick: () => toast.info(`Opening edit modal for Order #${o.id}...`),
-                        },
+                        ...(o.orderStatus !== "cancelled" && o.orderStatus !== "delivered"
+                          ? [
+                              {
+                                label: "Cancel Order",
+                                onClick: () => handleCancelOrder(o.id),
+                                variant: "danger" as const,
+                              },
+                            ]
+                          : []),
                       ]}
                     />
                   </td>

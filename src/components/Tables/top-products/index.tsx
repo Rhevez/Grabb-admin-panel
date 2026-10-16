@@ -55,12 +55,12 @@ export async function TopProducts() {
 
               <TableCell>{product.category}</TableCell>
 
-              <TableCell>${product.price}</TableCell>
+              <TableCell>₹{product.price}</TableCell>
 
               <TableCell>{product.sold}</TableCell>
 
               <TableCell className="pr-5 text-right text-green-light-1 sm:pr-6 xl:pr-7.5">
-                ${product.profit}
+                ₹{product.profit}
               </TableCell>
             </TableRow>
           ))}

@@ -22,12 +22,6 @@ interface Partner {
   rating: string;
 }
 
-const DEFAULT_UNASSIGNED: UnassignedOrder[] = [
-  { id: "ORD-94820", shopName: "Urban Organic Mart", itemsCount: 4, amount: "₹28.00", waitTime: "25 mins" },
-  { id: "ORD-94818", shopName: "Green Grocery Fresh", itemsCount: 2, amount: "₹15.20", waitTime: "40 mins" },
-  { id: "ORD-94815", shopName: "Daily Needs Superstore", itemsCount: 7, amount: "₹64.00", waitTime: "12 mins" },
-];
-
 export default function UnassignedOrdersPage() {
   const [orders, setOrders] = useState<UnassignedOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,17 +32,28 @@ export default function UnassignedOrdersPage() {
   }, []);
 
   const fetchUnassigned = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/orders/unassigned");
-      let fetched: UnassignedOrder[] = [];
+      let fetched: any[] = [];
       if (Array.isArray(res)) fetched = res;
       else if (res && Array.isArray(res.data)) fetched = res.data;
       else if (res && Array.isArray(res.results)) fetched = res.results;
-      setOrders(fetched.length > 0 ? fetched : DEFAULT_UNASSIGNED);
+
+      const mapped: UnassignedOrder[] = fetched.map((o) => ({
+        id: o.id || `ORD-${o.pk}`,
+        shopName: o.shopName || o.shop_name || "Partner Shop",
+        itemsCount: o.itemsCount ?? o.items_count ?? 1,
+        amount: typeof o.amount === "string" && o.amount.startsWith("₹") ? o.amount : `₹${o.amount || "0.00"}`,
+        waitTime: o.waitTime || o.wait_time || (o.created_at ? new Date(o.created_at).toLocaleTimeString() : "Recent"),
+      }));
+
+      setOrders(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch unassigned orders:", err);
-      setOrders(DEFAULT_UNASSIGNED);
+      console.error("Failed to fetch unassigned orders:", err);
+      toast.error(err?.message || "Failed to load unassigned queue");
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -66,14 +71,14 @@ export default function UnassignedOrdersPage() {
       const { fetchApi } = await import("@/utils/api");
       await fetchApi(`/orders/${selectedOrder.id}/assign-driver`, {
         method: "POST",
-        body: JSON.stringify({ driverName: partnerName, driverId: partnerId }),
+        body: JSON.stringify({ driverName: partnerName, driverId: partnerId || "p1" }),
       });
+      setOrders((prev) => prev.filter((o) => o.id !== selectedOrder.id));
+      toast.success(`Assigned order ${selectedOrder.id} to partner ${partnerName}!`);
+      setSelectedOrder(null);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to assign driver:", err);
+      toast.error(err?.message || "Failed to assign driver");
     }
-    setOrders((prev) => prev.filter((o) => o.id !== selectedOrder.id));
-    toast.success(`Assigned order ${selectedOrder.id} to partner ${partnerName}!`);
-    setSelectedOrder(null);
   };
 
   return (
@@ -93,6 +98,12 @@ export default function UnassignedOrdersPage() {
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-12 space-y-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-dark-4 dark:text-dark-6">Loading unassigned queue...</p>
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-dark dark:text-white whitespace-nowrap">
             <thead className="bg-gray-2 text-xs font-semibold uppercase text-dark-4 dark:bg-dark-2 dark:text-dark-6">
@@ -136,6 +147,7 @@ export default function UnassignedOrdersPage() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* Partner Picker Modal */}

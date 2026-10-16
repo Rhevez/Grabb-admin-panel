@@ -33,7 +33,7 @@ export async function InvoiceTable() {
               <TableCell className="min-w-[155px] xl:pl-7.5">
                 <h5 className="text-dark dark:text-white">{item.name}</h5>
                 <p className="mt-[3px] text-body-sm font-medium">
-                  ${item.price}
+                  ₹{item.price}
                 </p>
               </TableCell>
 

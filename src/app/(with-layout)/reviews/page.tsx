@@ -21,13 +21,6 @@ interface ReviewItem {
   createdAt?: string;
 }
 
-const DEFAULT_REVIEWS: ReviewItem[] = [
-  { id: "rev_01", type: "item", targetName: "Organic Bananas 1kg", rating: 5, comment: "Super fresh, perfectly ripe and well packaged!", author: "Aakash Mehta", orderId: "ORD-9021", isFlagged: false, isDeleted: false, createdAt: "2026-08-01" },
-  { id: "rev_02", type: "driver", targetName: "Rahul Sharma (Rider)", rating: 1, comment: "Rude driver, delivered crushed groceries and left abruptly.", author: "Neha Reddy", orderId: "ORD-9014", isFlagged: true, isDeleted: false, createdAt: "2026-08-02" },
-  { id: "rev_03", type: "shop", targetName: "Green Grocery Fresh", rating: 4, comment: "Good store variety, but delayed dispatch by 15 mins.", author: "Sunil Verma", orderId: "ORD-8980", isFlagged: false, isDeleted: false, createdAt: "2026-08-03" },
-  { id: "rev_04", type: "item", targetName: "Almond Milk 1L", rating: 2, comment: "Carton was leaking upon arrival. Seal was broken.", author: "Kiran Rao", orderId: "ORD-8955", isFlagged: true, isDeleted: false, createdAt: "2026-08-04" },
-];
-
 export default function CustomerReviewsPage() {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,17 +34,35 @@ export default function CustomerReviewsPage() {
   }, []);
 
   const fetchReviews = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/feedback/reviews");
-      let fetched: ReviewItem[] = [];
-      if (Array.isArray(res)) fetched = res;
-      else if (res && Array.isArray(res.data)) fetched = res.data;
-      else if (res && Array.isArray(res.results)) fetched = res.results;
-      setReviews(fetched.length > 0 ? fetched : DEFAULT_REVIEWS);
+      let rawList: any[] = [];
+      if (Array.isArray(res)) rawList = res;
+      else if (res && Array.isArray(res.data)) rawList = res.data;
+      else if (res && Array.isArray(res.results)) rawList = res.results;
+      else if (res && Array.isArray(res.reviews)) rawList = res.reviews;
+
+      const mapped: ReviewItem[] = rawList.map((r: any) => ({
+        id: String(r.id || r.review_id || `rev_${Math.floor(1000 + Math.random() * 9000)}`),
+        type: ((r.type || r.review_type || "item").toLowerCase()) as "item" | "driver" | "shop",
+        targetName: r.targetName || r.target_name || r.item_name || r.shop_name || r.driver_name || "General Item",
+        rating: Number(r.rating || 5),
+        comment: r.comment || r.text || r.feedback || "No feedback text provided.",
+        author: r.author || r.customer_name || r.user_name || "Verified Customer",
+        orderId: String(r.orderId || r.order_id || "N/A"),
+        isFlagged: Boolean(r.isFlagged ?? r.is_flagged ?? false),
+        isDeleted: Boolean(r.isDeleted ?? r.is_deleted ?? false),
+        createdAt: r.createdAt || r.created_at,
+      }));
+
+      setReviews(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch customer reviews:", err);
-      setReviews(DEFAULT_REVIEWS);
+      if (err?.status !== 404) {
+        console.error("Failed to fetch customer reviews:", err);
+      }
+      setReviews([]);
     } finally {
       setLoading(false);
     }
@@ -171,7 +182,12 @@ export default function CustomerReviewsPage() {
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
-        {filteredReviews.length === 0 ? (
+        {loading ? (
+          <div className="py-16 flex flex-col items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="mt-3 text-sm text-dark-4 dark:text-dark-6">Loading reviews...</p>
+          </div>
+        ) : filteredReviews.length === 0 ? (
           <EmptyState
             variant="reviews"
             title="No Customer Reviews Found"

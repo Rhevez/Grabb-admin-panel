@@ -44,9 +44,10 @@ export const NAV_DATA = [
       {
         title: "Delivery Partners",
         icon: Icons.DeliveryIcon,
+        badge: "Soon",
         items: [
-          { title: "All Partners", url: "/delivery-partners" },
-          { title: "Verification Queue", url: "/delivery-partners/onboarding" },
+          { title: "All Partners", url: "/delivery-partners", badge: "Soon" },
+          { title: "Verification Queue", url: "/delivery-partners/onboarding", badge: "Soon" },
         ],
       },
       {
@@ -70,6 +71,7 @@ export const NAV_DATA = [
         title: "Live Fleet Map",
         url: "/delivery-partners/live-map",
         icon: Icons.MapIcon,
+        badge: "Soon",
         items: [],
       },
       {

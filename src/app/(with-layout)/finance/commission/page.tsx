@@ -13,18 +13,12 @@ interface ShopCommission {
   commissionPct: number;
 }
 
-const DEFAULT_OVERRIDES: ShopCommission[] = [
-  { id: "s1", name: "Green Grocery Fresh", commissionPct: 12.0 },
-  { id: "s2", name: "Urban Organic Mart", commissionPct: 10.0 },
-  { id: "s3", name: "Daily Needs Superstore", commissionPct: 18.0 },
-];
-
 export default function CommissionRulesPage() {
   const [globalCommission, setGlobalCommission] = useState<number>(15.0);
-  const [baseDeliveryFee, setBaseDeliveryFee] = useState<number>(2.5);
-  const [perKmRate, setPerKmRate] = useState<number>(0.8);
-  const [freeThreshold, setFreeThreshold] = useState<number>(30.0);
-  const [shopOverrides, setShopOverrides] = useState<ShopCommission[]>(DEFAULT_OVERRIDES);
+  const [baseDeliveryFee, setBaseDeliveryFee] = useState<number>(25.0);
+  const [perKmRate, setPerKmRate] = useState<number>(10.0);
+  const [freeThreshold, setFreeThreshold] = useState<number>(0.0);
+  const [shopOverrides, setShopOverrides] = useState<ShopCommission[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modals state
@@ -38,6 +32,7 @@ export default function CommissionRulesPage() {
   }, []);
 
   const fetchCommissionRules = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/finance/commission-rules");
@@ -50,7 +45,8 @@ export default function CommissionRulesPage() {
         if (Array.isArray(data.shopOverrides)) setShopOverrides(data.shopOverrides);
       }
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch commission rules:", err);
+      console.error("Failed to fetch commission rules:", err);
+      toast.error(err?.message || "Failed to load commission rules");
     } finally {
       setLoading(false);
     }

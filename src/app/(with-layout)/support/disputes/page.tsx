@@ -21,12 +21,6 @@ interface DisputeItem {
   liability?: "shop" | "driver" | "platform" | string;
 }
 
-const DEFAULT_DISPUTES: DisputeItem[] = [
-  { id: "DSP-501", orderId: "ORD-9821", customerName: "Rahul Sharma", shopName: "Green Grocery Fresh", driverName: "Vikram Singh", issue: "Damaged apples & spilled oil bottle", refundRequested: "₹18.50", status: "open" },
-  { id: "DSP-502", orderId: "ORD-9755", customerName: "Anita Desai", shopName: "Daily Needs Superstore", driverName: "Amit Kumar", issue: "Missing 1x Olive Oil bottle from package", refundRequested: "₹12.00", status: "open" },
-  { id: "DSP-500", orderId: "ORD-9610", customerName: "Karan Patel", shopName: "Organic Mart", driverName: "Sunil Verma", issue: "Order arrived 90 mins late and spoiled", refundRequested: "₹24.00", status: "resolved", liability: "driver" },
-];
-
 export default function DisputesPage() {
   const [disputes, setDisputes] = useState<DisputeItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,17 +37,41 @@ export default function DisputesPage() {
   }, []);
 
   const fetchDisputes = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi("/support/disputes");
-      let fetched: DisputeItem[] = [];
-      if (Array.isArray(res)) fetched = res;
-      else if (res && Array.isArray(res.data)) fetched = res.data;
-      else if (res && Array.isArray(res.results)) fetched = res.results;
-      setDisputes(fetched.length > 0 ? fetched : DEFAULT_DISPUTES);
+      let rawList: any[] = [];
+      if (Array.isArray(res)) rawList = res;
+      else if (res && Array.isArray(res.data)) rawList = res.data;
+      else if (res && Array.isArray(res.results)) rawList = res.results;
+      else if (res && Array.isArray(res.disputes)) rawList = res.disputes;
+
+      const mapped: DisputeItem[] = rawList.map((d: any) => {
+        const rawAmount = d.refundRequested || d.refund_amount || d.amount || 0;
+        const formattedRefund = typeof rawAmount === "string" && rawAmount.startsWith("₹")
+          ? rawAmount
+          : `₹${Number(rawAmount || 0).toFixed(2)}`;
+
+        return {
+          id: String(d.id || d.dispute_id || `DSP-${Math.floor(100 + Math.random() * 900)}`),
+          orderId: String(d.orderId || d.order_id || d.order?.id || "N/A"),
+          customerName: d.customerName || d.customer_name || d.user_name || "Customer",
+          shopName: d.shopName || d.shop_name || d.store_name || "Merchant Store",
+          driverName: d.driverName || d.driver_name || d.driver || "Unassigned",
+          issue: d.issue || d.reason || d.description || "General Dispute",
+          refundRequested: formattedRefund,
+          status: ((d.status || "open").toLowerCase()) as "open" | "resolved",
+          liability: d.liability || d.assigned_liability,
+        };
+      });
+
+      setDisputes(mapped);
     } catch (err: any) {
-      if (err?.status !== 404) console.error("Failed to fetch disputes:", err);
-      setDisputes(DEFAULT_DISPUTES);
+      if (err?.status !== 404) {
+        console.error("Failed to fetch disputes:", err);
+      }
+      setDisputes([]);
     } finally {
       setLoading(false);
     }
@@ -189,7 +207,12 @@ export default function DisputesPage() {
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark overflow-hidden">
-        {filteredDisputes.length === 0 ? (
+        {loading ? (
+          <div className="py-16 flex flex-col items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="mt-3 text-sm text-dark-4 dark:text-dark-6">Loading disputes...</p>
+          </div>
+        ) : filteredDisputes.length === 0 ? (
           <EmptyState
             variant="disputes"
             title="No Dispute Records Found"
