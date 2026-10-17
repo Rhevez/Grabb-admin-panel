@@ -1,8 +1,6 @@
-﻿"use client";
+"use client";
 
-import { EmailIcon, PasswordIcon } from "@/assets/icons";
-import { signIn } from "@/lib/auth/auth-client";
-import Link from "next/link";
+import { EmailIcon } from "@/assets/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 import React, { useState } from "react";
 import { toast } from "sonner";
@@ -18,9 +16,9 @@ export default function SigninWithPassword() {
     remember: false,
   });
 
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const [loadingStatus, setLoadingStatus] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,10 +26,27 @@ export default function SigninWithPassword() {
       ...data,
       [e.target.name]: e.target.value,
     });
+    if (error) setError("");
+  };
+
+  const handleFillDemo = () => {
+    setData({
+      email: "admin@graabb.com",
+      password: "admin123",
+      remember: true,
+    });
+    setError("");
+    toast.info("Demo administrator credentials populated!");
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!data.email.trim() || !data.password) {
+      toast.error("Please enter both email and password.");
+      setError("Please fill in both fields.");
+      return;
+    }
+
     setLoading(true);
     setLoadingStatus("Authenticating credentials...");
     setError("");
@@ -40,7 +55,7 @@ export default function SigninWithPassword() {
       const { fetchApi } = await import("@/utils/api");
       const response = await fetchApi("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email: data.email, password: data.password }),
+        body: JSON.stringify({ email: data.email.trim(), password: data.password }),
       });
 
       const token = response.token || response.access_token || response.data?.token;
@@ -51,22 +66,28 @@ export default function SigninWithPassword() {
         localStorage.setItem("token", token);
         localStorage.setItem("admin", JSON.stringify(adminObj));
         
-        // Artificial delay for modern onboarding feel
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        // Ensure token cookie is set for Next.js SSR / route guards
+        document.cookie = `token=${token}; path=/; max-age=604800; SameSite=Lax`;
+
+        // Standard Sonner success feedback
+        toast.success("Authentication successful! Welcome to Grabb Admin.");
+
+        // Brief 300ms transition for smooth UX
+        await new Promise((resolve) => setTimeout(resolve, 350));
         setLoadingStatus("Redirecting to Dashboard...");
-        await new Promise((resolve) => setTimeout(resolve, 600));
 
         const callbackURL = searchParams.get("callbackUrl") || "/";
         router.push(callbackURL);
       } else {
         setLoading(false);
-        toast.error("Login succeeded but no token received in response.");
+        toast.error("Login succeeded but no access token received.");
         console.error("Login response:", response);
       }
     } catch (err: any) {
       setLoading(false);
-      setError(err.message || "Failed to sign in");
-      toast.error(err.message || "Failed to sign in");
+      const errMsg = err?.data?.detail || err?.data?.error || err.message || "Failed to sign in";
+      setError(errMsg);
+      toast.error(errMsg);
     }
   };
 
@@ -74,16 +95,16 @@ export default function SigninWithPassword() {
     <div className="relative">
       {/* Modern Interactive Loading Overlay */}
       {loading && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-xl bg-white/80 backdrop-blur-md dark:bg-gray-dark/80">
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-2xl bg-white/85 backdrop-blur-md dark:bg-gray-dark/85 shadow-2xl transition-all">
           <div className="relative flex h-16 w-16 items-center justify-center">
-            <div className="absolute h-full w-full animate-[spin_2s_linear_infinite] rounded-full border-4 border-dashed border-primary/40"></div>
-            <div className="absolute h-10 w-10 animate-pulse rounded-full bg-primary/80 shadow-[0_0_15px_rgba(var(--color-primary),0.5)]"></div>
+            <div className="absolute h-full w-full animate-[spin_1.5s_linear_infinite] rounded-full border-4 border-dashed border-primary/50"></div>
+            <div className="absolute h-10 w-10 animate-pulse rounded-full bg-primary/80 shadow-[0_0_20px_rgba(87,80,241,0.6)]"></div>
           </div>
-          <h3 className="mt-6 text-lg font-bold text-dark dark:text-white animate-pulse">
+          <h3 className="mt-5 text-base font-bold text-dark dark:text-white">
             {loadingStatus}
           </h3>
-          <p className="mt-2 text-xs font-medium text-dark-4 dark:text-dark-6">
-            Please wait securely connecting...
+          <p className="mt-1.5 text-xs font-medium text-dark-4 dark:text-dark-6">
+            Connecting to Grabb Admin Gateway...
           </p>
         </div>
       )}
@@ -91,27 +112,50 @@ export default function SigninWithPassword() {
       <form onSubmit={handleSubmit} className={loading ? "opacity-30 blur-sm pointer-events-none transition-all" : "transition-all"}>
         <InputGroup
           type="email"
-          label="Email"
+          label="Email Address"
           className="mb-4 [&_input]:py-3.75"
-          placeholder="Enter your email"
+          placeholder="admin@graabb.com"
           name="email"
           handleChange={handleChange}
           value={data.email}
+          required
           icon={<EmailIcon />}
         />
 
-        <InputGroup
-          type="password"
-          label="Password"
-          className="mb-5 [&_input]:py-3.75"
-          placeholder="Enter your password"
-          name="password"
-          handleChange={handleChange}
-          value={data.password}
-          icon={<PasswordIcon />}
-        />
+        <div className="relative mb-5">
+          <InputGroup
+            type={showPassword ? "text" : "password"}
+            label="Password"
+            className="[&_input]:py-3.75 [&_input]:pr-12"
+            placeholder="Enter password"
+            name="password"
+            handleChange={handleChange}
+            value={data.password}
+            required
+            icon={
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="cursor-pointer text-dark-4 hover:text-dark dark:text-dark-6 dark:hover:text-white transition-colors"
+                title={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            }
+          />
+        </div>
 
-        <div className="mb-6 flex items-center justify-between gap-2 py-2 font-medium">
+        <div className="mb-6 flex items-center justify-between gap-2 py-1 font-medium text-xs sm:text-sm">
           <Checkbox
             label="Remember me"
             name="remember"
@@ -126,24 +170,55 @@ export default function SigninWithPassword() {
             }
           />
 
-          <Link
-            href="/"
-            className="ring-primary outline-0 hover:text-primary focus-visible:text-primary focus-visible:ring dark:text-white dark:hover:text-primary"
+          <button
+            type="button"
+            onClick={() =>
+              toast.info("To reset administrator credentials, please contact your Superadmin or devops@grabb.com.", {
+                duration: 5000,
+              })
+            }
+            className="text-xs text-dark-4 hover:text-primary outline-none focus-visible:text-primary dark:text-dark-6 dark:hover:text-primary transition-colors"
           >
             Forgot Password?
-          </Link>
+          </button>
         </div>
 
-        <div className="mb-4.5">
+        <div className="mb-4">
           <button
             type="submit"
             disabled={loading}
-            className="hover:bg-opacity-90 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary p-4 font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-70"
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary py-3.5 px-4 font-semibold text-white shadow-1 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70 text-sm sm:text-base"
           >
-            Sign In
+            {loading ? (
+              <>
+                <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                </svg>
+                <span>Signing In...</span>
+              </>
+            ) : (
+              <span>Sign In</span>
+            )}
           </button>
         </div>
-        {error && <p className="text-sm text-red-500">{error}</p>}
+
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 p-3 text-xs font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-900/50">
+            {error}
+          </div>
+        )}
+
+        <div className="pt-2 flex items-center justify-between text-xs text-dark-4 dark:text-dark-6 border-t border-stroke dark:border-stroke-dark">
+          <span>Need demo credentials?</span>
+          <button
+            type="button"
+            onClick={handleFillDemo}
+            className="font-semibold text-primary hover:underline transition-colors"
+          >
+            Quick Fill Demo Admin
+          </button>
+        </div>
       </form>
     </div>
   );
