@@ -28,6 +28,7 @@ export default function AnalyticsPage() {
   }, [dateRange, shop]);
 
   const fetchAnalytics = async () => {
+    setLoading(true);
     try {
       const { fetchApi } = await import("@/utils/api");
       const res = await fetchApi(`/analytics/dashboard-summary?dateRange=${dateRange}&shop=${shop}`);
@@ -42,36 +43,45 @@ export default function AnalyticsPage() {
 
   const handleExport = () => {
     if (activeTab === "sales") {
-      const rows = (analyticsData?.shopSalesBreakdown || [
-        { shop: "Green Valley Organics", orders: 312, revenue: 145000.0, aov: 464.74, share: "38.2%" },
-        { shop: "Daily Fresh Mart", orders: 240, revenue: 98400.0, aov: 410.0, share: "25.9%" },
-        { shop: "Nature's Basket Hub", orders: 185, revenue: 72100.0, aov: 389.72, share: "19.0%" },
-      ]).map((r: any) => [r.shop || r.name, String(r.orders), `₹${r.revenue || r.rev}`, `₹${r.aov}`, r.share || r.pct]);
+      const rows = (analyticsData?.shopSalesBreakdown || []).map((r: any) => [
+        r.shop || r.name,
+        String(r.orders ?? 0),
+        `₹${r.revenue || r.rev || 0}`,
+        `₹${r.aov || 0}`,
+        r.share || r.pct || "0%",
+      ]);
       downloadCSV(`sales_analytics_${dateRange}.csv`, ["Shop Name", "Total Orders", "Total Revenue", "AOV", "% of Total"], rows);
     } else if (activeTab === "delivery") {
-      const rows = (analyticsData?.deliveryLeaderboard || [
-        { driver: "Rajesh Kumar", orders: 142, rating: 4.9, on_time: "98.5%", earnings: "₹18,460" },
-        { driver: "Vikram Singh", orders: 128, rating: 4.8, on_time: "96.8%", earnings: "₹16,640" },
-        { driver: "Arun Patel", orders: 115, rating: 4.7, on_time: "95.2%", earnings: "₹14,950" },
-      ]).map((r: any) => [r.driver || r.name, String(r.orders || r.count), String(r.rating), r.on_time || r.onTime, r.earnings || "₹12,000"]);
+      const rows = (analyticsData?.deliveryLeaderboard || []).map((r: any) => [
+        r.driver || r.name,
+        String(r.orders || r.count || 0),
+        String(r.rating || "0.0"),
+        r.on_time || r.onTime || "0%",
+        r.earnings || "₹0",
+      ]);
       downloadCSV(`delivery_partner_leaderboard_${dateRange}.csv`, ["Partner Name", "Deliveries Completed", "Rating", "On-Time %", "Earnings"], rows);
     } else if (activeTab === "customers") {
-      const rows = (analyticsData?.topCustomers || [
-        { name: "Pooja Sharma", phone: "+91 98765 43210", orders: 28, spent: "₹14,850", status: "Active" },
-        { name: "Ananya Desai", phone: "+91 98451 12345", orders: 22, spent: "₹11,400", status: "Active" },
-      ]).map((r: any) => [r.name, r.phone || "", String(r.orders), r.spent, r.status]);
+      const rows = (analyticsData?.topCustomers || []).map((r: any) => [
+        r.name,
+        r.phone || "",
+        String(r.orders ?? 0),
+        r.spent || "₹0",
+        r.status || "Active",
+      ]);
       downloadCSV(`top_customers_${dateRange}.csv`, ["Customer Name", "Phone", "Total Orders", "Total Spent", "Status"], rows);
     } else if (activeTab === "products") {
-      const rows = (analyticsData?.top_selling_products || analyticsData?.bestSellingProducts || [
-        { name: "Amul Taaza Homogenised Toned Milk 1L", units_sold: 1420, revenue: 102240.0 },
-        { name: "Tata Salt Vacuum Evaporated 1kg", units_sold: 980, revenue: 27440.0 },
-      ]).map((r: any) => [r.name, String(r.units_sold || r.units), `₹${r.revenue || r.rev}`]);
+      const rows = (analyticsData?.top_selling_products || analyticsData?.bestSellingProducts || []).map((r: any) => [
+        r.name,
+        String(r.units_sold || r.units || 0),
+        `₹${r.revenue || r.rev || 0}`,
+      ]);
       downloadCSV(`bestselling_products_${dateRange}.csv`, ["Product Name", "Units Sold", "Revenue"], rows);
     } else {
-      const rows = (analyticsData?.cancellationReasons || [
-        { reason: "Driver Unassigned / Delay", count: 28, percentage: "43.8%" },
-        { reason: "Customer Cancelled within 60s", count: 18, percentage: "28.1%" },
-      ]).map((r: any) => [r.reason, String(r.count), r.percentage || r.pct]);
+      const rows = (analyticsData?.cancellationReasons || []).map((r: any) => [
+        r.reason,
+        String(r.count ?? 0),
+        r.percentage || r.pct || "0%",
+      ]);
       downloadCSV(`cancellation_reasons_${dateRange}.csv`, ["Cancellation Reason", "Order Count", "Percentage"], rows);
     }
     toast.success(`Exported ${activeTab} analytics as CSV!`);
@@ -136,6 +146,18 @@ export default function AnalyticsPage() {
 
       {/* Tab 1: Sales Analytics */}
       {activeTab === "sales" && (
+        loading ? (
+          <div className="grid grid-cols-12 gap-6">
+            <div className="col-span-12 xl:col-span-7 h-[360px] animate-pulse rounded-2xl bg-white dark:bg-gray-dark border border-stroke dark:border-stroke-dark p-6 flex flex-col justify-between">
+              <div className="h-6 w-48 bg-gray-2 dark:bg-dark-2 rounded" />
+              <div className="h-56 bg-gray-2/60 dark:bg-dark-2/60 rounded-xl" />
+            </div>
+            <div className="col-span-12 xl:col-span-5 h-[360px] animate-pulse rounded-2xl bg-white dark:bg-gray-dark border border-stroke dark:border-stroke-dark p-6 flex flex-col items-center justify-center">
+              <div className="size-44 rounded-full border-8 border-gray-2 dark:border-dark-2 animate-pulse" />
+            </div>
+            <div className="col-span-12 h-64 animate-pulse rounded-2xl bg-white dark:bg-gray-dark border border-stroke dark:border-stroke-dark p-6" />
+          </div>
+        ) : (
         <div className="grid grid-cols-12 gap-6">
           <div className="col-span-12 xl:col-span-7 rounded-2xl bg-white p-6 shadow-1 dark:bg-gray-dark border border-stroke dark:border-stroke-dark">
             <div className="flex items-center justify-between mb-4">
@@ -192,7 +214,7 @@ export default function AnalyticsPage() {
             </div>
           </div>
         </div>
-      )}
+      ))}
 
       {/* Tab 2: Order Analytics */}
       {activeTab === "orders" && (

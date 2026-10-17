@@ -33,7 +33,8 @@ export function RevenueTrendChart({ dateRange, totalSales, isCompareOn }: Revenu
   };
 
   const points = getPoints();
-  const baseStep = (totalSales || 348500) / (points.length * 1.25);
+  const sales = totalSales ?? 0;
+  const baseStep = sales > 0 ? sales / (points.length * 1.25) : 0;
 
   const currentSeries = points.map((_, i) => Math.round(baseStep * (0.65 + (i * 0.08))));
   const previousSeries = currentSeries.map((v) => Math.round(v * 0.86));
@@ -116,15 +117,20 @@ interface CategoryRevenueProps {
 }
 
 export function CategoryRevenueDonut({ categories }: CategoryRevenueProps) {
-  const defaultCats = [
-    { category: "Dairy & Breakfast", total_sales: 115200 },
-    { category: "Fresh Produce", total_sales: 89400 },
-    { category: "Beverages & Drinks", total_sales: 64300 },
-    { category: "Snacks & Munchies", total_sales: 51200 },
-    { category: "Personal Care", total_sales: 28400 },
-  ];
+  const activeData = categories && categories.length > 0 ? categories : [];
 
-  const activeData = categories && categories.length > 0 ? categories : defaultCats;
+  if (activeData.length === 0) {
+    return (
+      <div className="h-[280px] w-full flex flex-col items-center justify-center text-center p-4">
+        <div className="size-16 rounded-full bg-gray-2 dark:bg-dark-2 flex items-center justify-center mb-3">
+          <span className="text-xl font-bold text-dark-4 dark:text-dark-6">₹0</span>
+        </div>
+        <p className="text-sm font-semibold text-dark dark:text-white">No Category Data</p>
+        <p className="text-xs text-dark-4 dark:text-dark-6 mt-1">No sales breakdown recorded for this filter.</p>
+      </div>
+    );
+  }
+
   const labels = activeData.map((c) => c.category);
   const series = activeData.map((c) => Number(c.total_sales));
   const total = series.reduce((acc, curr) => acc + curr, 0);
@@ -191,15 +197,20 @@ interface OrderStatusProps {
 }
 
 export function OrderStatusDonut({ ordersByStatus }: OrderStatusProps) {
-  const defaultStatus = [
-    { status: "DELIVERED", count: 1042, value: 285400 },
-    { status: "PENDING", count: 86, value: 24100 },
-    { status: "CANCELLED", count: 64, value: 18900 },
-    { status: "OUT_FOR_DELIVERY", count: 52, value: 14200 },
-    { status: "ACCEPTED", count: 40, value: 5900 },
-  ];
+  const activeData = ordersByStatus && ordersByStatus.length > 0 ? ordersByStatus : [];
 
-  const activeData = ordersByStatus && ordersByStatus.length > 0 ? ordersByStatus : defaultStatus;
+  if (activeData.length === 0) {
+    return (
+      <div className="h-[280px] w-full flex flex-col items-center justify-center text-center p-4">
+        <div className="size-16 rounded-full bg-gray-2 dark:bg-dark-2 flex items-center justify-center mb-3">
+          <span className="text-xl font-bold text-dark-4 dark:text-dark-6">0</span>
+        </div>
+        <p className="text-sm font-semibold text-dark dark:text-white">No Order Status Data</p>
+        <p className="text-xs text-dark-4 dark:text-dark-6 mt-1">No orders recorded for this filter.</p>
+      </div>
+    );
+  }
+
   const labels = activeData.map((s) => s.status.replace(/_/g, " "));
   const series = activeData.map((s) => Number(s.count));
   const total = series.reduce((acc, curr) => acc + curr, 0);
@@ -261,14 +272,17 @@ interface CustomerSegmentsProps {
 }
 
 export function CustomerSegmentsBarChart({ segments }: CustomerSegmentsProps) {
-  const defaultSegments = [
-    { segment: "VIP (> ₹5k)", count: 148, revenue_share: 44.5 },
-    { segment: "Regulars (2-4 ord)", count: 382, revenue_share: 38.2 },
-    { segment: "Occasional", count: 244, revenue_share: 12.1 },
-    { segment: "New (< 14d)", count: 118, revenue_share: 5.2 },
-  ];
+  const activeData = segments && segments.length > 0 ? segments : [];
 
-  const activeData = segments && segments.length > 0 ? segments : defaultSegments;
+  if (activeData.length === 0) {
+    return (
+      <div className="h-[280px] w-full flex flex-col items-center justify-center text-center p-4">
+        <p className="text-sm font-semibold text-dark dark:text-white">No Customer Segment Data</p>
+        <p className="text-xs text-dark-4 dark:text-dark-6 mt-1">No customer activity recorded for this filter.</p>
+      </div>
+    );
+  }
+
   const categories = activeData.map((s) => s.segment);
   const counts = activeData.map((s) => s.count);
   const shares = activeData.map((s) => s.revenue_share);
@@ -339,15 +353,17 @@ interface DeliveryZoneProps {
 }
 
 export function DeliveryZoneBarChart({ performance }: DeliveryZoneProps) {
-  const defaultPerformance = [
-    { zone: "Koramangala", avg_time_mins: 18, on_time_rate: 97.4 },
-    { zone: "Indiranagar", avg_time_mins: 22, on_time_rate: 94.8 },
-    { zone: "HSR Layout", avg_time_mins: 19, on_time_rate: 96.1 },
-    { zone: "Whitefield", avg_time_mins: 27, on_time_rate: 89.2 },
-    { zone: "Jayanagar", avg_time_mins: 16, on_time_rate: 98.6 },
-  ];
+  const activeData = performance && performance.length > 0 ? performance : [];
 
-  const activeData = performance && performance.length > 0 ? performance : defaultPerformance;
+  if (activeData.length === 0) {
+    return (
+      <div className="h-[280px] w-full flex flex-col items-center justify-center text-center p-4">
+        <p className="text-sm font-semibold text-dark dark:text-white">No Delivery Zone Data</p>
+        <p className="text-xs text-dark-4 dark:text-dark-6 mt-1">No delivery metrics recorded for this filter.</p>
+      </div>
+    );
+  }
+
   const categories = activeData.map((d) => d.zone.replace("Central ", "").replace(" 4th Block", ""));
   const times = activeData.map((d) => d.avg_time_mins);
   const onTime = activeData.map((d) => d.on_time_rate);
