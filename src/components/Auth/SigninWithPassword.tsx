@@ -21,6 +21,18 @@ export default function SigninWithPassword() {
   const [error, setError] = useState("");
   const [loadingStatus, setLoadingStatus] = useState("");
 
+  // Load remembered admin email on mount
+  React.useEffect(() => {
+    try {
+      const savedEmail = localStorage.getItem("remembered_admin_email");
+      if (savedEmail) {
+        setData((prev) => ({ ...prev, email: savedEmail, remember: true }));
+      }
+    } catch (e) {
+      // Ignore localStorage read errors in restricted contexts
+    }
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setData({
       ...data,
@@ -66,6 +78,13 @@ export default function SigninWithPassword() {
         localStorage.setItem("token", token);
         localStorage.setItem("admin", JSON.stringify(adminObj));
         
+        // Persist or clear remembered email
+        if (data.remember) {
+          localStorage.setItem("remembered_admin_email", data.email.trim());
+        } else {
+          localStorage.removeItem("remembered_admin_email");
+        }
+
         // Ensure token cookie is set for Next.js SSR / route guards
         document.cookie = `token=${token}; path=/; max-age=604800; SameSite=Lax`;
 
@@ -114,7 +133,7 @@ export default function SigninWithPassword() {
           type="email"
           label="Email Address"
           className="mb-4 [&_input]:py-3.75"
-          placeholder="admin@graabb.com"
+          placeholder="admin@grabb.com"
           name="email"
           handleChange={handleChange}
           value={data.email}

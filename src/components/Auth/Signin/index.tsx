@@ -21,10 +21,10 @@ export default function Signin() {
       </div>
 
       <div className="mt-6 text-center">
-        <p>
-          Don’t have any account?{" "}
-          <Link href="/auth/sign-up" className="text-primary">
-            Sign Up
+        <p className="text-xs text-dark-4 dark:text-dark-6">
+          Need administrator credentials?{" "}
+          <Link href="/auth/sign-up" className="font-semibold text-primary hover:underline transition-colors">
+            Request Access
           </Link>
         </p>
       </div>
