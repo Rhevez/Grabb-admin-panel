@@ -1,3 +1,4 @@
+import { AuthBrandingCard } from "@/components/Auth/AuthBrandingCard";
 import { Logo } from "@/components/logo";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -73,43 +74,17 @@ export default function SignUp() {
 
       {/* Right Column: Symmetrical High-End Branded Card */}
       <div className="hidden w-full p-6 xl:block xl:w-1/2">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-1 to-white p-12 dark:from-[#122031] dark:to-[#0d1724] border border-stroke dark:border-stroke-dark shadow-sm">
-          <Link className="mb-8 inline-flex flex-col items-start" href="/">
-            <Logo width={200} height={62} showAdminBadge badgeText="Admin Panel" />
-          </Link>
-          
-          <p className="mb-2 text-sm font-semibold text-primary uppercase tracking-wider">
-            Enterprise Security
-          </p>
-
-          <h2 className="mb-4 text-2xl font-bold text-dark dark:text-white sm:text-heading-3">
-            Role-Based Administration
-          </h2>
-
-          <p className="mb-8 max-w-[420px] text-sm font-medium text-dark-4 dark:text-dark-6 leading-relaxed">
-            Strict separation of duties across Operations, Customer Support, Financial Auditing, and System Configuration ensures regulatory compliance and merchant data isolation.
-          </p>
-
-          <div className="space-y-4 mb-8">
-            <div className="flex items-center gap-3 text-xs font-semibold text-dark-3 dark:text-dark-6">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">✓</span>
-              <span>Granular Permission Scopes & Audit Trails</span>
-            </div>
-            <div className="flex items-center gap-3 text-xs font-semibold text-dark-3 dark:text-dark-6">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">✓</span>
-              <span>Encrypted Session Management & CSRF Defense</span>
-            </div>
-            <div className="flex items-center gap-3 text-xs font-semibold text-dark-3 dark:text-dark-6">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">✓</span>
-              <span>Multi-Tenant Store Catalog Partitioning</span>
-            </div>
-          </div>
-
-          <div className="pt-6 border-t border-stroke dark:border-stroke-dark/60 flex items-center justify-between text-xs text-dark-4 dark:text-dark-6">
-            <span>Grabb Admin Suite v1.3.0</span>
-            <span className="font-semibold text-primary">Security & IAM Standards</span>
-          </div>
-        </div>
+        <AuthBrandingCard
+          category="Enterprise Security"
+          title="Role-Based Administration"
+          description="Strict separation of duties across Operations, Customer Support, Financial Auditing, and System Configuration ensures regulatory compliance and merchant data isolation."
+          highlights={[
+            { text: "Granular Permission Scopes & Audit Trails" },
+            { text: "Encrypted Session Management & CSRF Defense" },
+            { text: "Multi-Tenant Store Catalog Partitioning" },
+          ]}
+          footerCategory="Security & IAM Standards"
+        />
       </div>
     </div>
   );
