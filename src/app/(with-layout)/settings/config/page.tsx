@@ -5,8 +5,8 @@ import { fetchApi } from "@/utils/api";
 import { toast } from "sonner";
 
 export default function AppConfigPage() {
-  const [siteName, setSiteName] = useState("Graabb Platform");
-  const [supportEmail, setSupportEmail] = useState("support@graabb.com");
+  const [siteName, setSiteName] = useState("Grabb Platform");
+  const [supportEmail, setSupportEmail] = useState("support@grabb.com");
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [orderAutoCancelMinutes, setOrderAutoCancelMinutes] = useState(15);
   const [taxPct, setTaxPct] = useState(5.0);

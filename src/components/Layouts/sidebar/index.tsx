@@ -67,10 +67,7 @@ export function Sidebar() {
                 onClick={() => isMobile && toggleSidebar()}
                 className="flex flex-col items-center gap-1 px-0 py-2.5 min-[850px]:py-0 w-[180px]"
               >
-                <Logo />
-                <span className="text-[10px] font-bold tracking-[0.25em] text-[#f59e0b] uppercase select-none opacity-90 text-center w-full">
-                  Admin
-                </span>
+                <Logo showAdminBadge />
               </Link>
             )}
 

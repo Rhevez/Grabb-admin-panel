@@ -29,14 +29,20 @@ export function Header() {
         )}
 
         {isMobile && (
-          <Link href={"/"} className="max-[430px]:hidden">
-            <Image
-              src={"/images/logo/logo-icon.svg"}
-              width={32}
-              height={32}
-              alt=""
-              role="presentation"
-            />
+          <Link href={"/"} className="max-[430px]:hidden flex items-center gap-1.5">
+            <div className="relative h-8 w-24">
+              <Image
+                src="/images/file_0000000075c881f88071932eaa9e6bb8.png"
+                fill
+                sizes="96px"
+                className="object-contain"
+                alt="Grabb"
+                priority
+              />
+            </div>
+            <span className="text-[9px] font-bold tracking-widest text-[#f59e0b] uppercase">
+              Admin
+            </span>
           </Link>
         )}
 
