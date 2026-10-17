@@ -1,7 +1,7 @@
 import Signin from "@/components/Auth/Signin";
-import { AuthBrandingCard } from "@/components/Auth/AuthBrandingCard";
 import { Logo } from "@/components/logo";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -24,18 +24,34 @@ export default function SignIn() {
       </div>
 
       <div className="hidden w-full p-6 xl:block xl:w-1/2">
-        <AuthBrandingCard
-          category="Operations & Commerce"
-          title="Hyperlocal Fleet & Store Console"
-          description="Live administration for daily grocery fulfillment. Track unassigned dispatch queues, verify partner stores, monitor dynamic surge zones, and settle merchant ledgers."
-          highlights={[
-            { text: "Real-time dispatch queue & driver assignment monitoring" },
-            { text: "Direct merchant onboarding & store catalog controls" },
-            { text: "Zone-based dynamic delivery fee & surge pricing triggers" },
-            { text: "Automated merchant payouts & commission reconciliation" },
-          ]}
-          footerCategory="Quick-Commerce Operations"
-        />
+        <div className="custom-gradient-1 overflow-hidden rounded-2xl px-15 pt-12.5 dark:bg-[#122031] dark:!bg-none border border-stroke dark:border-stroke-dark shadow-sm">
+          <Link className="mb-8 inline-flex flex-col items-start" href="/">
+            <Logo width={200} height={62} showAdminBadge badgeText="Admin Panel" />
+          </Link>
+          <p className="mb-3 text-xl font-medium text-dark dark:text-white">
+            Sign in to your account
+          </p>
+
+          <h1 className="mb-4 text-2xl font-bold text-dark dark:text-white sm:text-heading-3">
+            Welcome Back!
+          </h1>
+
+          <p className="w-full max-w-[375px] font-medium text-dark-4 dark:text-dark-6">
+            Please sign in to your administrator account by completing the necessary fields below
+          </p>
+
+          <div className="mt-31">
+            <Image
+              src={"/images/grids/grid-02.svg"}
+              alt=""
+              role="presentation"
+              aria-hidden="true"
+              width={405}
+              height={325}
+              className="mx-auto dark:opacity-30"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
-import { AuthBrandingCard } from "@/components/Auth/AuthBrandingCard";
 import { Logo } from "@/components/logo";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -72,19 +72,36 @@ export default function SignUp() {
         </div>
       </div>
 
-      {/* Right Column: Symmetrical High-End Branded Card */}
+      {/* Right Column: Symmetrical Branded Card matching Sign-In */}
       <div className="hidden w-full p-6 xl:block xl:w-1/2">
-        <AuthBrandingCard
-          category="Enterprise Security"
-          title="Role-Based Administration"
-          description="Strict separation of duties across Operations, Customer Support, Financial Auditing, and System Configuration ensures regulatory compliance and merchant data isolation."
-          highlights={[
-            { text: "Granular Permission Scopes & Audit Trails" },
-            { text: "Encrypted Session Management & CSRF Defense" },
-            { text: "Multi-Tenant Store Catalog Partitioning" },
-          ]}
-          footerCategory="Security & IAM Standards"
-        />
+        <div className="custom-gradient-1 overflow-hidden rounded-2xl px-15 pt-12.5 dark:bg-[#122031] dark:!bg-none border border-stroke dark:border-stroke-dark shadow-sm">
+          <Link className="mb-8 inline-flex flex-col items-start" href="/">
+            <Logo width={200} height={62} showAdminBadge badgeText="Admin Panel" />
+          </Link>
+          <p className="mb-3 text-xl font-medium text-dark dark:text-white">
+            Administrative Access
+          </p>
+
+          <h2 className="mb-4 text-2xl font-bold text-dark dark:text-white sm:text-heading-3">
+            Role-Based Security
+          </h2>
+
+          <p className="w-full max-w-[375px] font-medium text-dark-4 dark:text-dark-6">
+            Administrator accounts are provisioned exclusively by authorized System Superadmins for compliance and security.
+          </p>
+
+          <div className="mt-31">
+            <Image
+              src={"/images/grids/grid-02.svg"}
+              alt=""
+              role="presentation"
+              aria-hidden="true"
+              width={405}
+              height={325}
+              className="mx-auto dark:opacity-30"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
